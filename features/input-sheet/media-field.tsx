@@ -32,7 +32,19 @@ import { discardMediaUploads, requestMediaUploads } from './upload-actions';
  * closed without dropping removes the rest as it goes. The same file
  * picked again while attached is not sent twice.
  */
-export function useMediaAttach(paths: string[], onChange: (next: string[]) => void) {
+export function useMediaAttach(
+  paths: string[],
+  onChange: (next: string[]) => void,
+  /**
+   * A refused draft opened again (H80): its photos are this draft's again,
+   * to hand over or to remove, with the previews and sizes they had.
+   */
+  adopt: {
+    mediaPaths: string[];
+    previews: Record<string, string>;
+    meta: MediaMeta;
+  } | null = null,
+) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -40,10 +52,10 @@ export function useMediaAttach(paths: string[], onChange: (next: string[]) => vo
   const [progress, setProgress] = useState<string | null>(null);
   // Local previews for what was just picked; a path from an edit has none
   // and shows as a tile until the detail sheet signs it.
-  const [previews, setPreviews] = useState<Record<string, string>>({});
-  const [meta, setMeta] = useState<MediaMeta>({});
+  const [previews, setPreviews] = useState<Record<string, string>>(adopt?.previews ?? {});
+  const [meta, setMeta] = useState<MediaMeta>(adopt?.meta ?? {});
   // Paths this draft uploaded and has not handed over, and which file each was.
-  const owned = useRef(new Map<string, string>());
+  const owned = useRef(new Map<string, string>(adopt?.mediaPaths.map((p) => [p, p]) ?? []));
 
   useEffect(() => {
     const uploads = owned.current;

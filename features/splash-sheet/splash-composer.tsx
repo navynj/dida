@@ -1,46 +1,16 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
-
-import { AnnotationControl } from '@/features/input-sheet/annotation-control';
-import { annotationVerdict, type Annotation } from '@/features/input-sheet/draft';
-import { LaneChips } from '@/features/input-sheet/lane-chips';
-import { EmojiInput } from '@/features/lanes/emoji-input';
-import {
-  AddImageAffordance,
-  discardingOnRefusal,
-  MediaPreviews,
-  useMediaAttach,
-} from '@/features/input-sheet/media-field';
-import { placeCard, type Card, ownPoolColumn } from '@/features/home/grid';
-import { createJointSplash, dropOwnPoolSplash, placeNewSplash } from '@/features/pool/actions';
-import { fallbackLane, type AudiencePick } from '@/features/pool/audience';
+import type { Card } from '@/features/home/grid';
 import type { AudiencePool } from '@/features/pool/audience-sheet';
-import {
-  followHomeLane,
-  NO_SHARE,
-  shareLane,
-  shareOff,
-  shareOn,
-  type ShareDraft,
-} from '@/features/pool/share-draft';
 import type { PoolScope } from '@/features/pool/compose-scope';
-import { poolSplashHref } from '@/features/pool/pool-cards';
-import { PoolLanePicker, type PoolPick } from '@/features/pool/pool-lane-picker';
-import type { Together } from '@/features/pool/pool-pick';
-import { dropSplash, setSplashDescription } from '@/features/splash/actions';
-import { defaultBlockDay, isRange } from '@/features/splash/block-day';
-import { DayChip } from '@/features/splash/day-chip';
-import { summarizeSplash, type SplashSummary } from '@/features/splash/summary';
+import type { SplashSummary } from '@/features/splash/summary';
 import type { MyCategory } from '@/lib/queries/profile';
 import type { IsoDate } from '@/lib/time';
-import { usePeople } from '@/features/people/people-provider';
 import type { PendingDrop } from '@/features/input-sheet/sheet-provider';
 
-import { ComposeTop } from './compose-top';
-import { ShareToRow } from './share-to-row';
+import { ComposerFields } from './composer-fields';
 import { SheetFooter } from './sheet-frame';
-import { composeDrop } from './split-title';
+import { useComposer } from './use-composer';
 
 export type SheetContext = {
   categories: MyCategory[];
@@ -62,22 +32,14 @@ export type DropHandoff = {
   pool?: { poolId: string; card: Card };
   /** Dropped from a pool: where Home seats it before the server has it (0033). */
   home?: PendingDrop['home'];
-  commit: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  /** `landed`: refused past the splash itself — it exists, only a later step failed. */
+  commit: () => Promise<{ ok: true } | { ok: false; message: string; landed?: true }>;
 };
 
-/** An IME is mid-composition: Chrome flags it, Safari reports keyCode 229. */
-function isComposing(event: React.KeyboardEvent): boolean {
-  return event.nativeEvent.isComposing || event.keyCode === 229;
-}
-
 /**
- * The composer (SPEC 6, H21, H75): a small optional title field over the
- * content, which takes the cursor first — Enter in the title still moves on
- * to the content — then the lane chip row (the post's lane), the
- * post's date chip preset to today, `+ Add Image`, and one full-width Drop.
- * The lane and the date are the post's, and every block takes them (H24). The
- * same form inside the phone's bottom sheet and the wide screen's standing
- * panel.
+ * The post sheet's composer (SPEC 6, H21, H75): the fields (`ComposerFields`)
+ * and one full-width Drop. Dormant since the draft card (H80) took the
+ * compose disc; kept with its tests, per the dormant-not-deleted rule.
  *
  * Drop hands over at once (CLAUDE.md, the principle): the post as the
  * ground should show it, its month, and the action that makes it real. The
@@ -95,455 +57,30 @@ export function SplashComposer({
   /** Composing from a pool (H23): its lanes are the picker, and it is the default audience. */
   pool?: PoolScope | null;
 }) {
-  const { categories, timeZone, today, pools, initials } = context;
-  const { me } = usePeople();
-  const fresh = (): Annotation => ({ date: today, time: null, endDate: null, endTime: null });
-  const [titleText, setTitleText] = useState('');
-  // The post's own icon (0008); empty lets the lane's emoji stand for it.
-  const [icon, setIcon] = useState('');
-  const [bodyText, setBodyText] = useState('');
-  // The splash's description (0037), asked for from the top line's `…`.
-  const [describing, setDescribing] = useState(false);
-  const [description, setDescription] = useState('');
-  const [laneId, setLaneId] = useState<string | null>(null);
-  // From a pool: a pool lane, and Together (0033).
-  const [pick, setPick] = useState<PoolPick>(null);
-  // Everyone starts on exactly as the pool's switch says, nothing hidden
-  // over it: a pool of one included (H61).
-  const noOne = (): Together => ({
-    everyone: Boolean(pool?.inviteAllByDefault),
-    picked: [],
-  });
-  const [together, setTogether] = useState<Together>(noOne);
-  // Where it is shared from Home, each pool's lane auto or picked by hand (H75).
-  const [share, setShare] = useState<ShareDraft>(NO_SHARE);
-  const joint = pick?.kind === 'joint';
-  // My pool record (0033): mine, on the pool lane, with no lane of mine.
-  const own = pick?.kind === 'own';
-  // From a pool there is no audience to choose: what is written there is in
-  // that pool, and only there. From Home, Only me until set (H45).
-  const audience: AudiencePick[] = pool ? [] : share.picks;
-  // A pool or joint record shows in the pool's column on my Home until I
-  // file it (H45).
-  const poolLane = pool && pick ? pool.lanes.find((l) => l.id === pick.poolLaneId) : undefined;
-  // Filled with Everyone on, or once anyone is picked (0033).
-  const invitesOthers = together.everyone || together.picked.length > 0;
-  // Today is in the field from the start (review): the post's date, days
-  // only (H24). Removed with its ×, the post rests on today all the same.
-  const [annotation, setAnnotation] = useState<Annotation | null>(fresh);
-  // The first block's own day, when the post's date is a range (0031).
-  const [chosenDay, setChosenDay] = useState<IsoDate | null>(null);
-  const draftRange =
-    annotation?.endDate && annotation.endDate > annotation.date
-      ? { start: annotation.date, end: annotation.endDate }
-      : null;
-  const firstDay = isRange(draftRange)
-    ? chosenDay && chosenDay >= draftRange.start && chosenDay <= draftRange.end
-      ? chosenDay
-      : defaultBlockDay(draftRange, today)
-    : null;
-  const [mediaPaths, setMediaPaths] = useState<string[]>([]);
-  const media = useMediaAttach(mediaPaths, setMediaPaths);
-  const field = useRef<HTMLTextAreaElement>(null);
-  const bodyField = useRef<HTMLTextAreaElement>(null);
-
-  // The fields grow with their words; the sheet's cap does the clipping.
-  useLayoutEffect(() => {
-    for (const el of [field.current, bodyField.current]) {
-      if (!el) continue;
-      el.style.height = 'auto';
-      if (el.scrollHeight > 0) el.style.height = `${el.scrollHeight}px`;
-    }
-  }, [titleText, bodyText]);
-
-  const { title, body } = composeDrop(titleText, bodyText);
-  const hasContent =
-    title.length > 0 || body.length > 0 || mediaPaths.length > 0 || laneId !== null;
-  // From a pool a pool lane must be chosen, or the record would not land there.
-  const poolReady =
-    !pool ||
-    (joint
-      ? title.length > 0 || body.length > 0
-      : own
-        ? title.length > 0 || body.length > 0 || mediaPaths.length > 0
-        : false);
-  const annotationOk = !annotation || annotationVerdict(annotation) === 'ok';
-
-  function drop(): void {
-    const a = annotation;
-    const id = crypto.randomUUID();
-    const now = new Date();
-    const hasBlock = body.length > 0 || mediaPaths.length > 0;
-    // The post's range (H24): the chip's days, else today.
-    const declaredStart = a?.date ?? today;
-    const declaredEnd = a?.endDate && a.endDate !== a.date ? a.endDate : null;
-    // The first block's day, inside the range only (0031).
-    const blockDay = hasBlock && firstDay ? firstDay : null;
-    const input = {
-      id,
-      title,
-      body,
-      media: mediaPaths,
-      mediaMeta: media.meta,
-      declaredStart,
-      declaredEnd,
-      declaredLaneId: laneId,
-      icon: icon || null,
-      today,
-      sessionId: null,
-      blockDay,
-    };
-
-    // The post as the ground should show it, summarised the way the page
-    // summarises a real one.
-    const splash = summarizeSplash(
-      {
-        id,
-        owner_id: '',
-        title,
-        declared_start: declaredStart,
-        declared_end: declaredEnd,
-        declared_lane_id: laneId,
-        icon: icon || null,
-        session_id: null,
-        pinned_at: null,
-        pool_id: null,
-        pool_lane_id: null,
-        own_pool_id: own && pool ? pool.poolId : null,
-        created_by: null,
-        joint_invite_all: false,
-        is_welcome: false,
-        description: describing && description.trim() ? description.trim() : null,
-        type: 'free',
-        prompt: null,
-        ends_at: null,
-        created_at: now.toISOString(),
-        // Mine, written now: today in my zone, as the trigger will store it.
-        written_on: today,
-      },
-      hasBlock
-        ? [
-            {
-              id: `${id}-first`,
-              note: body.length > 0 ? body : null,
-              occurred_on: blockDay,
-              occurred_time: null,
-              created_at: now.toISOString(),
-            },
-          ]
-        : [],
-      timeZone,
-      now,
-    );
-
-    // Handed over with the drop: a refusal takes the post back and its photos with it.
-    const uploaded = media.keep(mediaPaths);
-    const shared = audience;
-    // The card this pool seats before the server has it (H23).
-    const poolCard: Card | null =
-      pool && poolLane && (joint || own)
-        ? {
-            ...placeCard(splash, body, timeZone),
-            column: poolLane.id,
-            lane: { icon: poolLane.icon, name: poolLane.name },
-            href: poolSplashHref(pool.poolId, id),
-            ...(joint
-              ? {
-                  joint: true,
-                  together: invitesOthers,
-                  branches: body
-                    ? [
-                        {
-                          id: `${id}-first`,
-                          column: poolLane.id,
-                          initials,
-                          authorId: me ?? undefined,
-                        },
-                      ]
-                    : [],
-                }
-              : { author: initials, authorId: me ?? undefined }),
-          }
-        : null;
-
-    // Home seats it where the server will (review, H45): in the pool's
-    // column with the pool lane's emoji.
-    const poolColumn = pool
-      ? {
-          id: ownPoolColumn(pool.poolId),
-          name: pool.poolName,
-          icon: null,
-          monogram: pool.poolName,
-          href: null,
-        }
-      : null;
-    const fallback = poolLane ? { icon: poolLane.icon, name: pool!.poolName } : null;
-    const home =
-      pool && poolColumn && (joint || own)
-        ? {
-            card: {
-              ...(joint
-                ? {
-                    column: poolColumn.id,
-                    joint: true,
-                    together: invitesOthers,
-                    pools: [pool.poolName],
-                    href: poolSplashHref(pool.poolId, id),
-                    menu: { pin: false, delete: false },
-                    editable: true,
-                  }
-                : { column: poolColumn.id }),
-              ...(fallback ? { lane: fallback } : {}),
-            },
-            column: poolColumn,
-          }
-        : undefined;
-
-    // Written after the splash itself, by the same action the page uses: any
-    // drop path, mine or joint (RLS holds who may).
-    const described = describing ? description.trim() : '';
-    const withDescription =
-      (made: () => Promise<{ ok: true } | { ok: false; message: string }>) =>
-      async (): Promise<{ ok: true } | { ok: false; message: string }> => {
-        const done = await made();
-        if (!done.ok || !described) return done;
-        const saved = await setSplashDescription(id, described);
-        return saved.ok
-          ? saved
-          : { ok: false, message: `Dropped, but the description was not saved: ${saved.message}` };
-      };
-
-    onDrop({
-      splash,
-      month: declaredStart.slice(0, 7),
-      note: body.length > 0 ? body : null,
-      ...(pool && poolCard ? { pool: { poolId: pool.poolId, card: poolCard } } : {}),
-      ...(home ? { home } : {}),
-      commit: discardingOnRefusal(
-        withDescription(
-          own
-            ? () =>
-                dropOwnPoolSplash({
-                  id,
-                  poolId: pool!.poolId,
-                  poolLaneId: pick.poolLaneId,
-                  title,
-                  icon: icon || null,
-                  body,
-                  media: mediaPaths,
-                  mediaMeta: media.meta,
-                  declaredStart,
-                  declaredEnd,
-                  blockDay,
-                })
-            : joint
-              ? () =>
-                  createJointSplash({
-                    id,
-                    poolId: pool!.poolId,
-                    poolLaneId: pick.poolLaneId,
-                    title,
-                    icon: icon || null,
-                    body,
-                    media: mediaPaths,
-                    mediaMeta: media.meta,
-                    declaredStart,
-                    declaredEnd,
-                    blockDay,
-                    invitees: together.everyone ? [] : together.picked,
-                    everyone: together.everyone,
-                  })
-              : async () => {
-                  const made = await dropSplash(input);
-                  if (!made.ok || shared.length === 0) return made;
-                  const placed = await placeNewSplash(id, shared);
-                  return placed.ok
-                    ? placed
-                    : { ok: false, message: `Dropped, but not shared: ${placed.message}` };
-                },
-        ),
-        uploaded,
-      ),
-    });
-
-    setTitleText('');
-    setIcon('');
-    setBodyText('');
-    setDescribing(false);
-    setDescription('');
-    setLaneId(null);
-    setPick(null);
-    setTogether(noOne());
-    setShare(NO_SHARE);
-    setAnnotation(fresh());
-    setChosenDay(null);
-    setMediaPaths([]);
-    bodyField.current?.focus();
-  }
-
+  const composer = useComposer({ context, pool });
   return (
-    <div data-splash-composer className="flex flex-col gap-5">
-      {/* The title, small and optional (H75): most records are a photo and
-          a line, and a big title field asked for a name every time. Left
-          empty, the record is untitled (H21). Enter moves on to the body;
-          not while an IME is composing (Korean, say): that Enter commits
-          the character, and moving focus on it would carry the character
-          into the body. */}
-      <div className="flex items-center gap-3">
-        {/* The post's own icon: one glyph from the phone's emoji keyboard,
-          shown large; left empty, the lane's emoji stands for the post. */}
-        <EmojiInput
-          value={icon}
-          onChange={setIcon}
-          label="Icon"
-          placeholder={categories.find((c) => c.id === laneId)?.icon ?? '🙂'}
-        />
-        <textarea
-          ref={field}
-          value={titleText}
-          onChange={(event) => setTitleText(event.target.value.replace(/\n/g, ''))}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            if (isComposing(event)) return;
-            bodyField.current?.focus();
-          }}
-          placeholder="Title (optional)"
-          rows={1}
-          aria-label="Title"
-          data-sheet-title
-          className="text-ink placeholder:text-ink min-w-0 flex-1 resize-none text-lg/snug font-semibold outline-none placeholder:opacity-30"
-        />
-        {/* `…` beside the title, not on a line of its own above it, so the
-            sheet does not open on an empty top (Yoonji, in the session). */}
-        <ComposeTop describing={describing} onDescribing={setDescribing} />
-      </div>
-      {/* The description, only once asked for (review): under the title,
-          small, its placeholder faint, and a divider under it as on the
-          post's page (Yoonji, in the session), so it is not taken for the
-          body. */}
-      {describing ? (
-        <textarea
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          autoFocus
-          rows={1}
-          maxLength={2000}
-          placeholder="Describe this page"
-          aria-label="Description"
-          data-compose-description-field
-          className="text-ink placeholder:text-ink border-pool-100 -mt-2 w-full resize-none border-b pb-4 text-sm/relaxed outline-none placeholder:opacity-30"
-        />
-      ) : null}
-      {/* Backspace at the very start of the body walks the cursor back up
-          to the end of the title, the way a notes app does. */}
-      <textarea
-        ref={bodyField}
-        value={bodyText}
-        onChange={(event) => setBodyText(event.target.value)}
-        onKeyDown={(event) => {
-          const el = event.currentTarget;
-          if (event.key !== 'Backspace' || el.selectionStart !== 0 || el.selectionEnd !== 0) return;
-          if (isComposing(event)) return;
-          event.preventDefault();
-          const title = field.current;
-          if (!title) return;
-          title.focus();
-          title.setSelectionRange(title.value.length, title.value.length);
-        }}
-        placeholder="Enter the content"
-        rows={3}
-        // The content is what is written first (H75): the cursor starts here.
-        autoFocus={autoFocus}
-        aria-label="Content"
-        data-sheet-body
-        className="text-ink placeholder:text-ink min-h-20 w-full resize-none text-lg/relaxed outline-none placeholder:opacity-30"
-      />
-
-      {/* The date and a photo come first, above the lane (review). */}
-      <div className="flex flex-wrap items-center gap-2">
-        <AnnotationControl
-          annotation={annotation}
-          today={today}
-          onChange={setAnnotation}
-          clock={false}
-          label="+ Add Date"
-        />
-        {/* The first block's day inside the post's range (0031). */}
-        {firstDay && isRange(draftRange) ? (
-          <DayChip range={draftRange} value={firstDay} onChange={setChosenDay} />
-        ) : null}
-        <AddImageAffordance
-          attach={media.attach}
-          busy={media.busy}
-          input={media.input}
-          progress={media.progress}
-        />
-      </div>
-      <MediaPreviews
-        paths={mediaPaths}
-        previews={media.previews}
-        failed={media.failed}
-        onChange={media.change}
-      />
-
-      {/* The post's lane: every block of it takes this one (H24).
-          From a pool: its lanes and Together, and no audience (H23, 0033). */}
-      {pool ? (
-        <PoolLanePicker
-          scope={pool}
-          pick={pick}
-          onPick={setPick}
-          together={together}
-          onTogether={setTogether}
-        />
-      ) : (
-        <LaneChips
-          categories={categories}
-          selectedId={laneId}
-          onSelect={(id) => {
-            setLaneId(id);
-            // Auto pools follow to a lane of the same name, else stay (H75).
-            const name = categories.find((c) => c.id === id)?.name ?? null;
-            setShare((draft) => followHomeLane(draft, name, pools));
-          }}
-          surface="white"
-        />
-      )}
-
-      {/* Where it is shared, said while it is written (H75): only from Home. */}
-      {pool ? null : (
-        <ShareToRow
-          pools={pools}
-          shared={audience}
-          startLane={(poolId) =>
-            fallbackLane(
-              categories.find((c) => c.id === laneId)?.name ?? null,
-              pools.find((p) => p.id === poolId)?.lanes ?? [],
-            )
-          }
-          onTurn={(poolId, poolLaneId) =>
-            setShare((draft) =>
-              poolLaneId ? shareOn(draft, poolId, poolLaneId) : shareOff(draft, poolId),
-            )
-          }
-          // Picked by hand: manual for this draft only, never remembered (H75).
-          onPick={(poolId, poolLaneId) => setShare((draft) => shareLane(draft, poolId, poolLaneId))}
-        />
-      )}
-
-      {/* Blue means action: the one filled thing here commits (H20f).
-          Pinned to the sheet's bottom, in reach above the keyboard. */}
-      <SheetFooter>
-        <button
-          type="button"
-          disabled={!hasContent || !annotationOk || !poolReady}
-          onClick={drop}
-          className="bg-main-900 w-full rounded-full py-2.5 text-xl font-medium text-white disabled:opacity-50"
-        >
-          Drop
-        </button>
-      </SheetFooter>
-    </div>
+    <ComposerFields
+      composer={composer}
+      pools={context.pools}
+      today={context.today}
+      autoFocus={autoFocus}
+      footer={
+        // Blue means action: the one filled thing here commits (H20f).
+        // Pinned to the sheet's bottom, in reach above the keyboard.
+        <SheetFooter>
+          <button
+            type="button"
+            disabled={!composer.canCommit}
+            onClick={() => {
+              onDrop(composer.handoff(crypto.randomUUID()));
+              composer.reset();
+            }}
+            className="bg-main-900 w-full rounded-full py-2.5 text-xl font-medium text-white disabled:opacity-50"
+          >
+            Drop
+          </button>
+        </SheetFooter>
+      }
+    />
   );
 }
