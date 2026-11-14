@@ -1,6 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
+import { motion, type MotionValue } from 'motion/react';
 
 /**
  * The spiral binding (H81): the stack reads as a top-bound notepad. One
@@ -66,7 +67,16 @@ export const HOLE_COMPOSITE: CSSProperties = {
  * edge. The two layers straddle the top card in the stack's own stacking,
  * so the wire threads it. Never a target: pointer-events none.
  */
-export function Binding({ width, half, z }: { width: number; half: 'back' | 'front'; z: number }) {
+export function Binding({
+  width,
+  half,
+  z,
+}: {
+  width: number;
+  half: 'back' | 'front';
+  /** The front half's is fixed; the back half's follows the card nearest the top. */
+  z: number | MotionValue<number>;
+}) {
   const xs = coilXs(width);
   if (xs.length === 0) return null;
   const height = COIL_RISE_PX + HOLE_CY_PX + WIRE_PX;
@@ -75,7 +85,7 @@ export function Binding({ width, half, z }: { width: number; half: 'back' | 'fro
   const ry = (bottom - top) / 2;
   const rx = 3.5;
   return (
-    <svg
+    <motion.svg
       aria-hidden
       data-binding={half}
       width={width}
@@ -101,6 +111,6 @@ export function Binding({ width, half, z }: { width: number; half: 'back' | 'fro
           strokeLinecap="round"
         />
       ))}
-    </svg>
+    </motion.svg>
   );
 }

@@ -101,6 +101,23 @@ export function depthZ(d: number, draft = false): number {
 /** The binding's back half just under the top card, its front half over it, a draft included. */
 export const BINDING_Z = { back: depthZ(0) - 1, front: depthZ(0, true) + 1 } as const;
 
+/**
+ * A card's distance from the top as the stack's depth moves (`p`, from its
+ * seat `from` to `to`) and, while a draft is seated again (H80), from where
+ * it was (`q`). One function for the cards and the binding's back half.
+ */
+export function depthAt(
+  from: number,
+  to: number,
+  pv: number,
+  qv: number,
+  reducedMotion: boolean,
+  reseatFrom?: number,
+): number {
+  const at = reducedMotion ? to : lerp(from, to, clamp01(pv));
+  return reseatFrom === undefined ? at : lerp(reseatFrom, at, clamp01(qv));
+}
+
 /** How far the finger travels before a drag's axis is decided (review). */
 export const AXIS_PX = 8;
 
@@ -263,7 +280,7 @@ export function StairBoard({
    */
   expanded?: boolean;
 }) {
-  const { ids, n, next, bringForward } = flip;
+  const { ids, n, next, bringForward, p } = flip;
   const byId = new Map(cards.map((card) => [card.splash.id, card]));
   const wide = useWide();
   const horizontal = wide && SIDEWAYS;
@@ -455,6 +472,23 @@ export function StairBoard({
     pages.sort((a, b) => a - b);
   }
 
+  // The back half of the wire just under whichever card is nearest the top
+  // seat as the depth moves (H81), so mid-flip it never draws over the cards
+  // in flight: the cards' own distance, and their own z, less one.
+  const backZ = useTransform([p, q], ([pv, qv]) => {
+    let best = Infinity;
+    let z = BINDING_Z.back;
+    for (const i of pages) {
+      const id = ids[i];
+      const v = depthAt(i - n, i - next, pv as number, qv as number, reducedMotion, fromOf(id));
+      if (Math.abs(v) < best) {
+        best = Math.abs(v);
+        z = depthZ(v, id === draft?.id) - 1;
+      }
+    }
+    return z;
+  });
+
   const top = flip.heading ? byId.get(flip.heading) : undefined;
   if (collapsed && !wide && top && !writing) {
     const lane = laneOfCard(top, categories);
@@ -540,7 +574,7 @@ export function StairBoard({
           })}
           {bound ? (
             <>
-              <Binding width={faceWidth} half="back" z={BINDING_Z.back} />
+              <Binding width={faceWidth} half="back" z={backZ} />
               <Binding width={faceWidth} half="front" z={BINDING_Z.front} />
             </>
           ) : null}
@@ -624,10 +658,9 @@ function Step({
 
   // The card's distance from the top as the stack's depth moves, and, while
   // a draft is seated again, from where it was to where it is going.
-  const d = useTransform([p, q], ([pv, qv]) => {
-    const at = reducedMotion ? to : lerp(from, to, clamp01(pv as number));
-    return reseatFrom === undefined ? at : lerp(reseatFrom, at, clamp01(qv as number));
-  });
+  const d = useTransform([p, q], ([pv, qv]) =>
+    depthAt(from, to, pv as number, qv as number, reducedMotion, reseatFrom),
+  );
   const y = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).y);
   const x = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).x);
   const scale = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).scale);

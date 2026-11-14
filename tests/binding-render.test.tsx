@@ -136,13 +136,14 @@ describe('the spiral binding (H81)', () => {
     expect(coilXs(2 * COIL_MARGIN_PX)).toEqual([]);
   });
 
-  it('draws one binding, front and back, straddling the top card, never a target', () => {
+  it('draws one binding, front and back, straddling the top card, never a target', async () => {
     const { container } = stack();
     const back = container.querySelector<SVGElement>('[data-stack] > [data-binding="back"]')!;
     const front = container.querySelector<SVGElement>('[data-stack] > [data-binding="front"]')!;
     expect(back.querySelectorAll('[data-coil]')).toHaveLength(coilXs(WIDTH).length);
     expect(front.querySelectorAll('[data-coil]')).toHaveLength(coilXs(WIDTH).length);
-    expect(Number(back.style.zIndex)).toBe(BINDING_Z.back);
+    // At rest, just under the top card: its z follows the card nearest the top.
+    await waitFor(() => expect(Number(back.style.zIndex)).toBe(BINDING_Z.back));
     expect(Number(front.style.zIndex)).toBe(BINDING_Z.front);
     // Under the top card, over everything a step away; over the top card, a draft included.
     expect(BINDING_Z.back).toBeLessThan(depthZ(0));
