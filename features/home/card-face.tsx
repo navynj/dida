@@ -18,6 +18,7 @@ import { CardPhotos } from './card-photos';
 import { CardPreview, CardResponseLine } from './card-preview';
 import { cardDate, postIcon, type Card, type CardLane, type CardPhoto } from './grid';
 import { LinkedText } from '@/components/ui/linked-text';
+import { BINDING_BAND_PX } from './binding';
 import { DEFAULT_THEME, themeHex } from '@/lib/theme';
 
 /** The top card's height, fixed so the grid above never moves when the stack changes. */
@@ -71,6 +72,7 @@ export function CardFace({
   href,
   onClickCapture,
   compact = false,
+  bound = false,
 }: {
   card: Card;
   lane: CardLane | null;
@@ -84,6 +86,8 @@ export function CardFace({
   onClickCapture?: (event: React.MouseEvent) => void;
   /** The phone's top card (H42f): the title, the first lines of the post, one line of responses. */
   compact?: boolean;
+  /** Under the spiral binding (H81): the words start below its band, clear of the holes. */
+  bound?: boolean;
 }) {
   const { me } = usePeople();
   const seen = useSeen();
@@ -181,7 +185,10 @@ export function CardFace({
         <span
           data-card-compact
           className="pointer-events-none relative flex h-full flex-col gap-1.5 px-5"
-          style={{ paddingTop: CARD_PAD_PX, paddingBottom: CARD_PAD_PX }}
+          style={{
+            paddingTop: CARD_PAD_PX + (bound ? BINDING_BAND_PX : 0),
+            paddingBottom: CARD_PAD_PX,
+          }}
         >
           {titleLine}
           <span data-card-body className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -210,7 +217,10 @@ export function CardFace({
       />
       <span
         className="pointer-events-none relative flex h-full flex-col gap-1.5 px-5"
-        style={{ paddingTop: CARD_PAD_PX, paddingBottom: CARD_PAD_PX }}
+        style={{
+          paddingTop: CARD_PAD_PX + (bound ? BINDING_BAND_PX : 0),
+          paddingBottom: CARD_PAD_PX,
+        }}
       >
         {titleLine}
         <span className="flex items-start justify-between gap-3">

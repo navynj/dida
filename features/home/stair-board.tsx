@@ -19,6 +19,7 @@ import type { MyCategory } from '@/lib/queries/profile';
 import { useTheme } from '@/features/people/theme-provider';
 import { SHEET_TOP_GAP_PX, useVisualViewport } from '@/features/splash-sheet/sheet-frame';
 
+import { Binding, COIL_RISE_PX, HOLE_COMPOSITE, HOLE_R_PX, holeMask } from './binding';
 import { CARD_PX, CardFace, face, SPINE_PX, TINT_STEP } from './card-face';
 import { CardMenu } from './card-menu';
 import { laneOfCard, type Card, type CardLane } from './grid';
@@ -27,8 +28,12 @@ import { DEFAULT_THEME, themeHex } from '@/lib/theme';
 
 /** Each step of the lower stair: how far a card peeks below the one in front, its visible edge. */
 export const STEP_PX = 26;
-/** The one read card above peeks by less: a bookmark, not a second stack (review). */
-export const UP_STEP_PX = 22;
+/**
+ * The one read card above peeks by less: a bookmark, not a second stack
+ * (review) — 22px of its own, and the coils' rise under it (H81), so its
+ * label and its tap zone sit wholly above the binding.
+ */
+export const UP_STEP_PX = 22 + COIL_RISE_PX;
 /** Each card a step away is this much the size of the one before, about its centre. */
 export const STEP_SCALE = 0.94;
 /** How many unread cards show below the top, and how many read cards above it: exactly one (review). */
@@ -81,6 +86,20 @@ export function upSolid(hex: string, mode: string): string {
   return mode === 'dark' ? face(1 - UP_ALPHA, hex) : '#FFFFFF';
 }
 const UP_INK = 0.6;
+
+/** The draft held in front of the cards stepping past it (H80). */
+const DRAFT_Z = 5;
+/**
+ * A card's place in the stack's stacking, by its distance from the top:
+ * nearer the top, nearer the eye; a card rising from below over one
+ * sliding up. The binding's two halves take theirs from the same formula,
+ * straddling the top card (H81).
+ */
+export function depthZ(d: number, draft = false): number {
+  return Math.round((30 - Math.abs(d)) * 10) + (d >= 0 ? 1 : 0) + (draft ? DRAFT_Z : 0);
+}
+/** The binding's back half just under the top card, its front half over it, a draft included. */
+export const BINDING_Z = { back: depthZ(0) - 1, front: depthZ(0, true) + 1 } as const;
 
 /** How far the finger travels before a drag's axis is decided (review). */
 export const AXIS_PX = 8;
@@ -267,6 +286,20 @@ export function StairBoard({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+  // The faces' width, where the binding's coils and holes are placed (H81).
+  const stackEl = useRef<HTMLDivElement>(null);
+  const [faceWidth, setFaceWidth] = useState(0);
+  const hasCards = cards.length > 0;
+  useEffect(() => {
+    const el = stackEl.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setFaceWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasCards]);
+  // The spiral binding (H81): on the stair as a phone and a wide screen run
+  // it, low or not; never sideways, and gone with the collapsed stack.
+  const bound = !horizontal;
   // Expanded, the box is pinned to what the keyboard leaves (H80), as a sheet is.
   const viewport = useVisualViewport(box, tall);
   let stair: Stair;
@@ -465,6 +498,7 @@ export function StairBoard({
     >
       {cards.length > 0 ? (
         <div
+          ref={stackEl}
           data-stack
           data-axis={horizontal ? 'x' : 'y'}
           data-writing={writing ? '' : undefined}
@@ -499,9 +533,17 @@ export function StairBoard({
                 draftFace={card.splash.id === draft?.id ? draft.face : null}
                 q={q}
                 reseatFrom={fromOf(card.splash.id)}
+                bound={bound}
+                faceWidth={faceWidth}
               />
             ) : null;
           })}
+          {bound ? (
+            <>
+              <Binding width={faceWidth} half="back" z={BINDING_Z.back} />
+              <Binding width={faceWidth} half="front" z={BINDING_Z.front} />
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -530,6 +572,8 @@ function Step({
   draftFace,
   q,
   reseatFrom,
+  bound,
+  faceWidth,
 }: {
   card: Card;
   index: number;
@@ -554,6 +598,10 @@ function Step({
   /** The re-seat's progress, and where this card was before it (H80). */
   q: MotionValue<number>;
   reseatFrom: number | undefined;
+  /** Under the spiral binding (H81): holes in the face, the words below its band. */
+  bound: boolean;
+  /** The face's width, where the holes are placed. */
+  faceWidth: number;
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const frostGlass = useBackdropFrost();
@@ -603,12 +651,13 @@ function Step({
   // full on top, gone a step away, so a flip fades it rather than pops it.
   const frontEdge = useTransform(d, (v) => 1 - clamp01(Math.abs(v)));
   const inkOpacity = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).ink);
-  // Nearer the top, nearer the eye; a card rising from below over one sliding up.
-  // The draft stays in front of the cards stepping past it (H80).
+  // Nearer the top, nearer the eye (depthZ); the draft stays in front of
+  // the cards stepping past it (H80).
   const isDraft = draftFace !== null;
-  const zIndex = useTransform(
-    d,
-    (v) => Math.round((30 - Math.abs(v)) * 10) + (v >= 0 ? 1 : 0) + (isDraft ? 5 : 0),
+  const zIndex = useTransform(d, (v) => depthZ(v, isDraft));
+  // The binding's holes (H81): full on top, closing a step away.
+  const holes = useTransform(d, (v) =>
+    bound ? holeMask(faceWidth, HOLE_R_PX * clamp01(1 - Math.abs(v))) : 'none',
   );
 
   const onTop = to === 0;
@@ -666,6 +715,7 @@ function Step({
           background,
           ['--face' as string]: background,
           ['--ink-opacity' as string]: inkOpacity,
+          ...(bound ? { maskImage: holes, WebkitMaskImage: holes, ...HOLE_COMPOSITE } : {}),
         }}
       >
         {onTop || touchesTop ? (
@@ -684,10 +734,17 @@ function Step({
                 href={href}
                 onClickCapture={guard}
                 compact={!wide}
+                bound={bound}
               />
             )}
             {onTop && !moving && !isDraft ? (
-              <CardMenu card={card} pinned={pinned} onPin={onPin} onDelete={onDelete} />
+              <CardMenu
+                card={card}
+                pinned={pinned}
+                onPin={onPin}
+                onDelete={onDelete}
+                bound={bound}
+              />
             ) : null}
           </motion.div>
         ) : null}

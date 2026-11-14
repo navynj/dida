@@ -7,6 +7,7 @@ import type { DropHandoff, SheetContext } from '@/features/splash-sheet/splash-c
 import { useComposer, type ComposerSnapshot } from '@/features/splash-sheet/use-composer';
 import type { IsoDate } from '@/lib/time';
 
+import { BINDING_BAND_PX } from './binding';
 import { CARD_PAD_PX } from './card-face';
 import type { StackDraft } from './stack-draft';
 
@@ -94,7 +95,8 @@ export function DraftCard({
       <div
         data-draft-top
         className="flex shrink-0 items-center justify-between px-5"
-        style={{ paddingTop: CARD_PAD_PX - 8 }}
+        // Below the binding's band, clear of the holes (H81).
+        style={{ paddingTop: CARD_PAD_PX - 8 + BINDING_BAND_PX }}
       >
         <button
           type="button"
