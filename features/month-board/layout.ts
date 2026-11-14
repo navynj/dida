@@ -925,6 +925,12 @@ function shapeB(card: Card, plan: Plan, ctx: Context): Shape {
         w: labelBox.x + labelBox.w,
         h: fit.h,
       };
+      // On the corner the indent clears the first line only: a sticker
+      // reaching past it would sit on the second, so it goes left instead.
+      if (at === 'corner' && fit.lines > 1 && stickerBox.y + s > v.top + m.caption.line) {
+        fallback ??= shape;
+        continue;
+      }
       fallback = shape;
       const onPage = { x: ctx.col * m.column + stickerBox.x, y: top + stickerBox.y, w: s, h: s };
       if (handSize || aboveWords.every((w) => !intersects(onPage, w))) return shape;
