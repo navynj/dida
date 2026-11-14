@@ -62,12 +62,14 @@ const MIN_CARD_WIDTH_PX = 320;
  */
 const DOWN_TINTS = [0, TINT_STEP, TINT_STEP * 2, TINT_STEP * 3] as const;
 /**
- * On the light ground the steps are light (H78h), and wide enough to part
- * the back cards by fill alone, with no line (H78v): 6%, 10% and 14% of the
- * theme colour in white. The dark ground keeps the 8% steps above, which
- * read against the water.
+ * On the light and pastel grounds the top card is a faint fill with no edge
+ * (H82, the Figma): the theme colour at 3% in white, a touch lighter than
+ * surface-1 (Yoonji, in the session). The steps below it are each a
+ * visible step more of the theme colour — 12%, 20%, 28% (lavender on Blue,
+ * grey on Black) — so the lower stair stays clearly darker than the top. The dark ground keeps the 8% steps above, which read
+ * against the water.
  */
-export const LIGHT_TINTS = [0, 0.06, 0.1, 0.14] as const;
+export const LIGHT_TINTS = [0.03, 0.12, 0.2, 0.28] as const;
 const UP_ALPHA = 0.2;
 
 /**
@@ -191,13 +193,18 @@ export function seat(
   const target = solid.startsWith('rgb')
     ? solid.match(/\d+/g)!.map(Number)
     : [1, 3, 5].map((k) => parseInt(solid.slice(k, k + 2), 16));
-  const channel = (c: number): number => Math.round(lerp(255, c, rise));
+  // From the top card's own fill (white on the dark ground, the faint fill on
+  // the light ones, H82), so a card coming down to the top lands on it with no jump.
+  const from = [1, 3, 5].map((k) =>
+    Math.round(255 - (255 - parseInt(base.slice(k, k + 2), 16)) * tints[0]),
+  );
+  const channel = (c: number, at: number): number => Math.round(lerp(from[at], c, rise));
   return {
     x,
     y,
     scale,
     opacity,
-    background: `rgb(${channel(target[0])}, ${channel(target[1])}, ${channel(target[2])})`,
+    background: `rgb(${channel(target[0], 0)}, ${channel(target[1], 1)}, ${channel(target[2], 2)})`,
     ink,
   };
 }
@@ -598,6 +605,8 @@ function Step({
   const { hex, theme } = useTheme();
   const solid = upSolid(hex, theme.mode);
   const tints = theme.mode === 'dark' ? DOWN_TINTS : LIGHT_TINTS;
+  // The light and pastel grounds' top card: a faint fill, no edge (H82).
+  const filled = theme.mode !== 'dark';
   // Pastel steps from the theme colour too (H78v): its own pale fill at these
   // steps parted nothing once the back cards lost their line.
   const base = theme.mode === 'pastel' ? themeHex(theme.color) : hex;
@@ -694,7 +703,9 @@ function Step({
       >
         {onTop || touchesTop ? (
           <motion.div
-            className="absolute inset-0"
+            // On the light and pastel grounds the top card is a faint fill
+            // (H82): what sat on surface-1 inside it turns white.
+            className={`absolute inset-0 ${filled ? 'card-filled' : ''}`}
             style={{ opacity: touchesTop ? fullOpacity : 1 }}
           >
             {isDraft && onTop ? (
@@ -758,13 +769,17 @@ function Step({
           </motion.div>
         ) : null}
       </motion.div>
-      {/* The front card's hairline (H78v), outside the clipped face so it shows. */}
-      <motion.div
-        aria-hidden
-        data-front-edge
-        className="surface-edge pointer-events-none absolute inset-0 rounded-[24px]"
-        style={{ opacity: frontEdge }}
-      />
+      {/* The front card's hairline (H78v), outside the clipped face so it
+          shows; the dark ground's alone — the light and pastel tops are a
+          fill with no edge (H82). */}
+      {filled ? null : (
+        <motion.div
+          aria-hidden
+          data-front-edge
+          className="surface-edge pointer-events-none absolute inset-0 rounded-[24px]"
+          style={{ opacity: frontEdge }}
+        />
+      )}
     </motion.div>
   );
 }

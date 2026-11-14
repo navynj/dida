@@ -35,13 +35,16 @@ describe('a card moving between the top and the read step without glass', () => 
   });
 });
 
-describe('the back cards on the light ground (H78v)', () => {
-  it('step 6%, 10% and 14% of the theme colour, wide enough to part without a line', () => {
-    const fill = (d: number): string =>
-      seat(d, STAIR, false, '#161621', upSolid('#161621', 'light'), LIGHT_TINTS).background;
-    expect(fill(0)).toBe('rgb(255, 255, 255)');
-    expect(fill(1)).toBe('rgb(241, 241, 242)');
-    expect(fill(2)).toBe('rgb(232, 232, 233)');
-    expect(fill(3)).toBe('rgb(222, 222, 224)');
+describe('the top card and the back cards on the light ground (H82)', () => {
+  const fill = (d: number): string =>
+    seat(d, STAIR, false, '#161621', upSolid('#161621', 'light'), LIGHT_TINTS).background;
+  it('fills the top with 3% of the theme colour and steps 12%, 20% and 28% below it', () => {
+    expect(fill(0)).toBe('rgb(248, 248, 248)');
+    expect(fill(1)).toBe('rgb(227, 227, 228)');
+    expect(fill(2)).toBe('rgb(208, 208, 211)');
+    expect(fill(3)).toBe('rgb(190, 190, 193)');
+  });
+  it('lands a card coming down from the read step on the top’s own fill, with no jump', () => {
+    expect(fill(-0.001)).toBe(fill(0));
   });
 });

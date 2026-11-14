@@ -658,6 +658,21 @@ body {
 [data-mode='pastel'] .water-ground .tint-1 [aria-selected='false'][aria-selected] {
   color: var(--text-inactive);
 }
+/*
+ * The stack's top card on the light and pastel grounds is a faint fill —
+ * the theme colour at 3% — with no edge (H82, the Figma). What sat on surface-1 inside it
+ * — the category chip, the draft card's fields and chips, the icon field —
+ * turns white, so it keeps its shape; a face with no photo steps a shade
+ * darker than the fill.
+ */
+[data-mode='light'] .water-ground .card-filled,
+[data-mode='pastel'] .water-ground .card-filled {
+  --color-pool-100: #ffffff;
+}
+[data-mode='light'] .water-ground .card-filled [data-avatar-blank],
+[data-mode='pastel'] .water-ground .card-filled [data-avatar-blank] {
+  background-color: var(--surface-2);
+}
 /* A face with no photo: surface-1, muted initials — white on a surface-1
    card, so it keeps its circle. */
 [data-mode='light'] .water-ground [data-avatar-blank] {
