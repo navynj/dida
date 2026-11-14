@@ -19,7 +19,7 @@ import type { MyCategory } from '@/lib/queries/profile';
 import { useTheme } from '@/features/people/theme-provider';
 import { SHEET_TOP_GAP_PX, useVisualViewport } from '@/features/splash-sheet/sheet-frame';
 
-import { Binding, COIL_RISE_PX, HOLE_COMPOSITE, HOLE_R_PX, holeMask } from './binding';
+import { Binding, COIL_RISE_PX, DrawnHoles, HOLE_COMPOSITE, HOLE_R_PX, holeMask } from './binding';
 import { CARD_PX, CardFace, face, SPINE_PX, TINT_STEP } from './card-face';
 import { CardMenu } from './card-menu';
 import { laneOfCard, type Card, type CardLane } from './grid';
@@ -688,10 +688,14 @@ function Step({
   // the cards stepping past it (H80).
   const isDraft = draftFace !== null;
   const zIndex = useTransform(d, (v) => depthZ(v, isDraft));
-  // The binding's holes (H81): full on top, closing a step away.
+  // The binding's holes (H81): full on top, closing a step away. Cut
+  // through on the dark ground, where the water shows in them; drawn on the
+  // light and pastel ones, where what is behind is as pale as the face.
+  const cutHoles = bound && theme.mode === 'dark';
   const holes = useTransform(d, (v) =>
-    bound ? holeMask(faceWidth, HOLE_R_PX * clamp01(1 - Math.abs(v))) : 'none',
+    cutHoles ? holeMask(faceWidth, HOLE_R_PX * clamp01(1 - Math.abs(v))) : 'none',
   );
+  const holeOpacity = useTransform(d, (v) => clamp01(1 - Math.abs(v)));
 
   const onTop = to === 0;
   const stairSide = to === 0 ? 'top' : to < 0 ? 'up' : 'down';
@@ -748,9 +752,10 @@ function Step({
           background,
           ['--face' as string]: background,
           ['--ink-opacity' as string]: inkOpacity,
-          ...(bound ? { maskImage: holes, WebkitMaskImage: holes, ...HOLE_COMPOSITE } : {}),
+          ...(cutHoles ? { maskImage: holes, WebkitMaskImage: holes, ...HOLE_COMPOSITE } : {}),
         }}
       >
+        {bound && !cutHoles ? <DrawnHoles width={faceWidth} opacity={holeOpacity} /> : null}
         {onTop || touchesTop ? (
           <motion.div
             className="absolute inset-0"

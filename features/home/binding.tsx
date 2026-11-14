@@ -114,3 +114,41 @@ export function Binding({
     </motion.svg>
   );
 }
+
+/**
+ * The holes drawn rather than cut (H81, follow-up): on the light and pastel
+ * grounds what is behind a card is as pale as its face, so a cut-through
+ * hole vanished. Each is filled with the next card's tone (`--surface-2`)
+ * with a 1px inner edge in `pool-200`, a punched hole on any pale ground.
+ * At the same places as the cut ones; full on top, fading a step away.
+ */
+export function DrawnHoles({ width, opacity }: { width: number; opacity: MotionValue<number> }) {
+  const xs = coilXs(width);
+  if (xs.length === 0) return null;
+  const height = HOLE_CY_PX + HOLE_R_PX + 1;
+  return (
+    <motion.svg
+      aria-hidden
+      data-holes="drawn"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="pointer-events-none absolute top-0 left-0 z-30"
+      style={{ opacity }}
+    >
+      {xs.map((x) => (
+        <circle
+          key={x}
+          data-hole
+          cx={x}
+          cy={HOLE_CY_PX}
+          // The edge's 1px drawn inside the hole's radius.
+          r={HOLE_R_PX - 0.5}
+          fill="var(--surface-2)"
+          stroke="var(--color-pool-200)"
+          strokeWidth={1}
+        />
+      ))}
+    </motion.svg>
+  );
+}

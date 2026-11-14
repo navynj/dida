@@ -37,6 +37,10 @@ test.beforeAll(async () => {
   if (made.error) throw made.error;
   user = made.data.user.id;
   await admin.from('profiles').insert({ id: user, display_name: 'Writer', timezone: ZONE });
+  // Black + Light, the default a new account starts on (H78x).
+  await admin
+    .from('my_theme_settings')
+    .upsert({ user_id: user, home_color: 'black', mode: 'light' });
   const lane = await admin
     .from('my_categories')
     .insert({ user_id: user, name: 'Walks', icon: '🚶' })
@@ -104,11 +108,8 @@ test('the read card’s label sits above the coils, and is where a tap lands', a
   await expect(page.locator('[data-binding="front"] [data-coil]').first()).toBeAttached();
   const top = page.locator('[data-stack-card][data-slot="0"]');
   await expect(top).toHaveAttribute('data-stack-card', posts.near);
-  const mask = await top
-    .locator('> div')
-    .first()
-    .evaluate((el) => getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage);
-  expect(mask).toContain('radial-gradient');
+  // Black + Light, the default: the holes are drawn (the ground behind is as pale as the face).
+  await expect(top.locator('[data-holes="drawn"] [data-hole]').first()).toBeAttached();
 
   // One flip forward: near is read, above the top card.
   await page.locator('[data-step-card]').first().click();

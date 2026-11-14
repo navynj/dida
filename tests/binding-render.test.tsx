@@ -23,6 +23,7 @@ import { BINDING_Z, depthZ, StairBoard, UP_STEP_PX } from '@/features/home/stair
 import { useFlip } from '@/features/home/use-flip';
 import { InputSheetProvider } from '@/features/input-sheet/sheet-provider';
 import { PeopleProvider } from '@/features/people/people-provider';
+import { ThemeProvider } from '@/features/people/theme-provider';
 import { summarizeSplash } from '@/features/splash/summary';
 
 const TZ = 'America/Vancouver';
@@ -116,13 +117,18 @@ function Stack({ collapsed = false, top = 'a' }: { collapsed?: boolean; top?: st
     />
   );
 }
-function stack(props: { collapsed?: boolean; top?: string } = {}) {
+function stack(
+  props: { collapsed?: boolean; top?: string } = {},
+  mode: 'light' | 'dark' | 'pastel' = 'light',
+) {
   return render(
-    <PeopleProvider me="u-me" people={{}}>
-      <InputSheetProvider>
-        <Stack {...props} />
-      </InputSheetProvider>
-    </PeopleProvider>,
+    <ThemeProvider initial={{ home: 'black', mode, everywhere: false }}>
+      <PeopleProvider me="u-me" people={{}}>
+        <InputSheetProvider>
+          <Stack {...props} />
+        </InputSheetProvider>
+      </PeopleProvider>
+    </ThemeProvider>,
   );
 }
 
@@ -159,8 +165,9 @@ describe('the spiral binding (H81)', () => {
     expect(container.querySelectorAll('[data-binding]')).toHaveLength(2);
   });
 
-  it('punches the holes in the top card’s face where the coils are, and none in the read card’s strip', async () => {
-    const { container } = stack({ top: 'b' });
+  it('cuts the holes through the top card’s face on the dark ground, and none in the read card’s strip', async () => {
+    const { container } = stack({ top: 'b' }, 'dark');
+    expect(container.querySelector('[data-holes="drawn"]')).toBeNull();
     const faceOf = (id: string): HTMLElement =>
       container.querySelector<HTMLElement>(`[data-stack-card="${id}"] > div`)!;
     const maskOf = (id: string): string =>
@@ -172,6 +179,30 @@ describe('the spiral binding (H81)', () => {
     // The read card above: its bookmark strip carries no holes.
     const read = maskOf('a');
     expect(read === '' || read === 'none').toBe(true);
+  });
+
+  it('draws the holes on the light and pastel grounds: the next card’s tone, a 1px pool-200 edge', async () => {
+    for (const mode of ['light', 'pastel'] as const) {
+      const { container } = stack({ top: 'b' }, mode);
+      const face = container.querySelector<HTMLElement>('[data-stack-card="b"] > div')!;
+      const drawn = face.querySelector('[data-holes="drawn"]')!;
+      const holes = [...drawn.querySelectorAll('[data-hole]')];
+      expect(holes.map((h) => Number(h.getAttribute('cx')))).toEqual(coilXs(WIDTH));
+      for (const hole of holes) {
+        expect(hole.getAttribute('cy')).toBe(String(HOLE_CY_PX));
+        expect(hole.getAttribute('fill')).toBe('var(--surface-2)');
+        expect(hole.getAttribute('stroke')).toBe('var(--color-pool-200)');
+        expect(hole.getAttribute('stroke-width')).toBe('1');
+      }
+      // Nothing cut through: the drawn hole is the whole of it.
+      expect(face.style.maskImage || 'none').toBe('none');
+      // The read card's strip: faded out a step away.
+      const read = container.querySelector<HTMLElement>(
+        '[data-stack-card="a"] [data-holes="drawn"]',
+      );
+      await waitFor(() => expect(Number(read!.style.opacity)).toBe(0));
+      cleanup();
+    }
   });
 
   it('pushes the top card’s words below the band, and leaves the bookmark its own step above the coils', () => {
