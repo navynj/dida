@@ -7,10 +7,10 @@ import type { Database } from '@/lib/database.types';
 config({ path: '.env.local', quiet: true });
 
 /**
- * The spiral binding (H81), in a real browser: the coils rise over the top
- * card's edge, but the read card's bookmark above stays its own — its label
- * is where a tap lands. A throwaway person with three posts, against the
- * local stack; both are removed after.
+ * The read card's bookmark (review), in a real browser: the strip above the
+ * top card is its own — its label is where a tap lands, nothing over it.
+ * Kept from the spiral binding (H81, reverted). A throwaway person with
+ * three posts, against the local stack; both are removed after.
  */
 const admin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,7 +32,7 @@ let cookie = '';
 const posts: Record<string, string> = {};
 
 test.beforeAll(async () => {
-  const email = `binding-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@during.today`;
+  const email = `read-tap-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@during.today`;
   const made = await admin.auth.admin.createUser({ email, email_confirm: true });
   if (made.error) throw made.error;
   user = made.data.user.id;
@@ -92,10 +92,7 @@ async function signIn(page: Page, baseURL: string): Promise<void> {
   await page.context().addCookies([{ name: `sb-${ref}-auth-token`, value: cookie, url: baseURL }]);
 }
 
-test('the read card’s label sits above the coils, and is where a tap lands', async ({
-  page,
-  baseURL,
-}) => {
+test('the read card’s label is where a tap lands', async ({ page, baseURL }) => {
   test.setTimeout(120_000);
   await signIn(page, baseURL!);
   await page.goto('/');
@@ -104,12 +101,8 @@ test('the read card’s label sits above the coils, and is where a tap lands', a
   // Home holds live connections open, so it is never network-idle: a moment to hydrate.
   await page.waitForTimeout(1_500);
 
-  // The coils, and the holes in the top card's face that they thread.
-  await expect(page.locator('[data-binding="front"] [data-coil]').first()).toBeAttached();
   const top = page.locator('[data-stack-card][data-slot="0"]');
   await expect(top).toHaveAttribute('data-stack-card', posts.near);
-  // Black + Light, the default: the holes are drawn (the ground behind is as pale as the face).
-  await expect(top.locator('[data-holes="drawn"] [data-hole]').first()).toBeAttached();
 
   // One flip forward: near is read, above the top card.
   await page.locator('[data-step-card]').first().click();
@@ -118,10 +111,10 @@ test('the read card’s label sits above the coils, and is where a tap lands', a
   await expect(page.locator('[data-moving]')).toHaveCount(0);
 
   const label = await read.locator('[data-card-title]').boundingBox();
-  const front = await page.locator('[data-binding="front"]').boundingBox();
   expect(label).not.toBeNull();
-  // Wholly above the coils' top.
-  expect(label!.y + label!.height).toBeLessThanOrEqual(front!.y + 0.5);
+  // Wholly above the top card's edge.
+  const topBox = await top.boundingBox();
+  expect(label!.y + label!.height).toBeLessThanOrEqual(topBox!.y + 0.5);
   const hit = await page.evaluate(
     ([x, y]) =>
       document

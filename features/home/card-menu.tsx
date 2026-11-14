@@ -9,7 +9,6 @@ import { useInputSheet } from '@/features/input-sheet/sheet-provider';
 import { splashHref } from '@/features/home/scope';
 import { usePoolEditScope } from '@/features/pool/edit-scope';
 
-import { BINDING_BAND_PX } from './binding';
 import type { Card } from './grid';
 
 /**
@@ -24,14 +23,11 @@ export function CardMenu({
   pinned,
   onPin,
   onDelete,
-  bound = false,
 }: {
   card: Card;
   pinned: boolean;
   onPin: (pinned: boolean) => void;
   onDelete: () => void;
-  /** Under the spiral binding (H81): below its band, clear of the holes. */
-  bound?: boolean;
 }) {
   const [menu, setMenu] = useState<'closed' | 'open' | 'delete'>('closed');
   const { count } = card.splash;
@@ -41,7 +37,6 @@ export function CardMenu({
   return (
     <div
       className="absolute top-3 right-3 z-20 flex items-center"
-      style={bound ? { top: 12 + BINDING_BAND_PX } : undefined}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <button
