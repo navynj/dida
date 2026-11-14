@@ -6,11 +6,12 @@ import { asAdmin } from '../tests/as-user';
 config({ path: '.env.local', quiet: true });
 
 /**
- * The compose sheet never covers the whole screen (review): its top stays
- * at least 56px down, over the dimmed board, and Drop stays in reach in a
- * footer pinned to its bottom — with the content taller than the room, and
- * with the keyboard up, simulated by a visual viewport 340px shorter. One
- * throwaway person against the local stack, removed after.
+ * The draft card on a phone (H80): while it is written the stack expands
+ * over the board — its top stays at least 56px down, over the dimmed
+ * ground, and Save stays in reach pinned to the card's bottom — with the
+ * content taller than the room, and with the keyboard up, simulated by a
+ * visual viewport 340px shorter. One throwaway person against the local
+ * stack, removed after.
  */
 const admin = asAdmin();
 const KEYBOARD_PX = 340;
@@ -67,24 +68,24 @@ async function fakeKeyboard(page: Page): Promise<void> {
   });
 }
 
-/** The sheet's top, and Drop's box, against the room the keyboard leaves. */
+/** The expanded stack's top, and Save's box, against the room the keyboard leaves. */
 async function geometry(page: Page) {
   return page.evaluate(() => {
-    const sheet = document.querySelector('[data-splash-sheet]')!.getBoundingClientRect();
-    const drop = [...document.querySelectorAll('[data-splash-sheet] button')]
-      .find((b) => b.textContent?.trim() === 'Drop')!
+    const board = document
+      .querySelector('[data-diving-board][data-expanded]')!
       .getBoundingClientRect();
+    const save = document.querySelector('[data-draft-save]')!.getBoundingClientRect();
     return {
-      top: sheet.top,
-      bottom: sheet.bottom,
-      dropTop: drop.top,
-      dropBottom: drop.bottom,
+      top: board.top,
+      bottom: board.bottom,
+      saveTop: save.top,
+      saveBottom: save.bottom,
       room: window.visualViewport!.height,
     };
   });
 }
 
-test('the compose sheet keeps 56px of the board above it and Drop in reach, keyboard up', async ({
+test('the draft card keeps 56px of the board above it and Save in reach, keyboard up', async ({
   page,
   baseURL,
 }, info) => {
@@ -96,24 +97,28 @@ test('the compose sheet keeps 56px of the board above it and Drop in reach, keyb
   await page.goto('/');
   const compose = page.locator('[data-compose]:visible').first();
   await expect(compose).toBeVisible({ timeout: 90_000 });
-  const sheet = page.locator('[data-splash-sheet]');
-  // Tapped again until the page has hydrated and the sheet answers.
+  const draft = page.locator('[data-draft-card]');
+  const board = page.locator('[data-diving-board][data-expanded]');
+  // Tapped again until the page has hydrated and the draft answers.
   await expect(async () => {
     await compose.click();
-    await expect(sheet).toBeVisible({ timeout: 2_000 });
+    await expect(draft).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 60_000 });
+  await expect(board).toBeVisible();
+  // A page on the stack, not a sheet (H80).
+  await expect(page.locator('[data-splash-sheet]')).toHaveCount(0);
 
-  // Content far taller than the screen: the sheet stops short of the top.
-  const body = sheet.getByLabel('Content');
+  // Content far taller than the screen: the expanded stack stops short of the top.
+  const body = draft.getByLabel('Content');
   await body.fill(Array.from({ length: 60 }, (_, n) => `Line ${n + 1}`).join('\n'));
   await page.waitForTimeout(400); // the rise
   let at = await geometry(page);
   expect(at.top).toBeGreaterThanOrEqual(TOP_GAP_PX);
-  expect(at.dropTop).toBeGreaterThanOrEqual(at.top);
-  expect(at.dropBottom).toBeLessThanOrEqual(at.room);
+  expect(at.saveTop).toBeGreaterThanOrEqual(at.top);
+  expect(at.saveBottom).toBeLessThanOrEqual(at.room);
 
-  // The keyboard rises: the sheet shrinks with the room, its top stays put
-  // below the gap, and Drop sits above the keyboard.
+  // The keyboard rises: the stack shrinks with the room, its top stays put
+  // below the gap, and Save sits above the keyboard.
   await body.focus();
   await page.evaluate(
     (px) => (window as unknown as { __keyboard: (px: number) => void }).__keyboard(px),
@@ -126,11 +131,13 @@ test('the compose sheet keeps 56px of the board above it and Drop in reach, keyb
   expect(at.room).toBe(844 - KEYBOARD_PX);
   expect(at.top).toBeGreaterThanOrEqual(TOP_GAP_PX);
   expect(at.bottom).toBeLessThanOrEqual(at.room + 0.5);
-  expect(at.dropTop).toBeGreaterThanOrEqual(at.top);
-  expect(at.dropBottom).toBeLessThanOrEqual(at.room);
-  await expect(sheet.getByRole('button', { name: 'Drop', exact: true })).toBeInViewport();
+  expect(at.saveTop).toBeGreaterThanOrEqual(at.top);
+  expect(at.saveBottom).toBeLessThanOrEqual(at.room);
+  await expect(draft.locator('[data-draft-save]')).toBeInViewport();
 
-  // The board above it is still there to tap, and closes the sheet.
-  await page.mouse.click(195, TOP_GAP_PX / 2);
-  await expect(sheet).toHaveCount(0);
+  // Cancel asks, then Discard closes the draft.
+  await draft.locator('[data-draft-cancel]').click();
+  await draft.locator('[data-draft-discard]').click();
+  await expect(draft).toHaveCount(0);
+  await expect(board).toHaveCount(0);
 });
