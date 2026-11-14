@@ -35,6 +35,8 @@ export type Card = {
   body: string;
   /** Every block with words, oldest first: the card's thread, one entry per ripple. */
   ripples: CardRipple[];
+  /** A page being written on the stack, not yet a post (H80): seated by its date, never stored. */
+  draft?: true;
   /**
    * In a pool (H23), where the mark sits — the pool lane in the Lane view,
    * the author in Members — and what the card names as its lane. Absent on

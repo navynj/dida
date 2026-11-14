@@ -19,6 +19,21 @@ vi.mock('@/features/splash/actions', () => ({
     deleted.push(id);
     return Promise.resolve({ ok: true });
   },
+  // Save on the draft card (H80): held by the test, to answer it.
+  dropSplash: (input: { id: string; title: string; declaredStart: string }) =>
+    new Promise((resolve) => {
+      saves.push({ input, resolve });
+    }),
+  setSplashDescription: () => Promise.resolve({ ok: true }),
+}));
+const saves: {
+  input: { id: string; title: string; declaredStart: string };
+  resolve: (result: unknown) => void;
+}[] = [];
+vi.mock('@/features/pool/actions', () => ({
+  placeNewSplash: () => Promise.resolve({ ok: true }),
+  createJointSplash: () => Promise.resolve({ ok: true }),
+  dropOwnPoolSplash: () => Promise.resolve({ ok: true }),
 }));
 vi.mock('@/features/ripple-sheet/actions', () => ({
   deleteRipple: (id: string) => {
@@ -47,6 +62,7 @@ const deletes: { id: string; resolve: (outcome: unknown) => void }[] = [];
 
 import { byNewest, placeCard, type Card } from '@/features/home/grid';
 import { HomeGround } from '@/features/home/home-ground';
+import { ShellDataProvider } from '@/features/home/shell-data';
 import { PeopleProvider } from '@/features/people/people-provider';
 import type { HomeView } from '@/features/home/view-toggle';
 
@@ -248,18 +264,25 @@ function ground(
         {dropped ? <Dropper splash={dropped} month={month ?? '2026-09'} /> : null}
         {deleted ? <Deleter id={deleted} /> : null}
         <SheetProbe />
-        <HomeGround
-          initialView={homeView}
-          cards={cards(posts)}
-          pinned={posts.filter((p) => p.pinnedAt)}
-          categories={categories}
-          today={TODAY}
-          timeZone={TZ}
-          initials="YL"
-          scrollToMonth={month}
-          topParam={topParam}
-          board={board}
-        />
+        <ShellDataProvider
+          value={{
+            categories,
+            compose: { categories, timeZone: TZ, today: TODAY, pools: [], initials: 'YL' },
+          }}
+        >
+          <HomeGround
+            initialView={homeView}
+            cards={cards(posts)}
+            pinned={posts.filter((p) => p.pinnedAt)}
+            categories={categories}
+            today={TODAY}
+            timeZone={TZ}
+            initials="YL"
+            scrollToMonth={month}
+            topParam={topParam}
+            board={board}
+          />
+        </ShellDataProvider>
       </InputSheetProvider>
     </PeopleProvider>,
   );
@@ -679,7 +702,7 @@ describe('the diving board, a staircase', () => {
     await waitFor(() => expect(deleted).toEqual(['late']));
   });
 
-  it('opens the post sheet from the compose disc outside the stack: white, a blue plus; no nav', () => {
+  it('opens a draft card on the stack from the compose disc outside it: white, a blue plus; no sheet, no nav (H80)', () => {
     const { container } = ground();
     expect(container.querySelector('[data-drop-bar]')).toBeNull();
     expect(container.querySelector('[data-ground-nav]')).toBeNull();
@@ -687,9 +710,9 @@ describe('the diving board, a staircase', () => {
     const compose = container.querySelector('[data-board-column] [data-compose]')!;
     expect(compose.className).toContain('bg-white');
     expect(compose.className).toContain('text-main-900');
-    expect(container.querySelector('[data-sheet-open]')).toBeNull();
     fireEvent.click(compose);
-    expect(container.querySelector('[data-sheet-open="splash"]')).not.toBeNull();
+    expect(container.querySelector('[data-sheet-open]')).toBeNull();
+    expect(container.querySelector('[data-stack] [data-draft-card]')).not.toBeNull();
   });
 
   it('keeps its height whatever is on top, so the grid never moves', async () => {
@@ -1324,5 +1347,144 @@ describe('the Lane view draws no band across its lanes (review)', () => {
       expect(pieces, id).toHaveLength(1);
       expect(cellOf(pieces[0]).getAttribute('data-cell'), id).toBeTruthy();
     }
+  });
+});
+
+describe('the draft card (H80)', () => {
+  beforeEach(() => {
+    saves.length = 0;
+  });
+  const draftOf = (root: Element): HTMLElement | null =>
+    root.querySelector<HTMLElement>('[data-draft-card]');
+  async function compose(root: Element): Promise<string> {
+    fireEvent.click(root.querySelector('[data-board-column] [data-compose]')!);
+    await settled(root);
+    return draftOf(root)!.getAttribute('data-draft-card')!;
+  }
+  const field = (root: Element, label: string): HTMLTextAreaElement =>
+    draftOf(root)!.querySelector<HTMLTextAreaElement>(`[aria-label="${label}"]`)!;
+  /** The date chip set, and the stack's seat after it has rested. */
+  async function dated(root: Element, day: string): Promise<void> {
+    fireEvent.change(draftOf(root)!.querySelector('input[type="date"]')!, {
+      target: { value: day },
+    });
+    await waitFor(() => expect(draftOf(root)!.closest('[data-moving]')).toBeNull(), {
+      timeout: 2000,
+    });
+  }
+
+  it('is the top card, in edit mode: the fields, Cancel, and Save as the one filled thing', async () => {
+    const { container } = ground();
+    const id = await compose(container);
+    expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
+    const draft = draftOf(container)!;
+    expect(draft.querySelector('[aria-label="Title"]')!.getAttribute('placeholder')).toBe(
+      'Title (optional)',
+    );
+    expect(draft.querySelector('[aria-label="Content"]')).not.toBeNull();
+    expect(draft.querySelector('input[type="date"]')!.getAttribute('value')).toBe(TODAY);
+    expect(draft.querySelector('[data-draft-cancel]')!.textContent).toBe('Cancel');
+    const save = draft.querySelector<HTMLButtonElement>('[data-draft-save]')!;
+    expect(save.textContent).toBe('Save');
+    expect(save.className).toContain('bg-main-900');
+    expect(draft.querySelectorAll('.bg-main-900')).toHaveLength(1);
+    // Nothing written yet: nothing to save.
+    expect(save.disabled).toBe(true);
+    // The newest was on top; the draft, written today, comes before it.
+    expect(stair(container, 'down')[0]).toBe('late');
+    // The ring sits on the draft's day.
+    await ringed(container, id);
+  });
+
+  it('holds the stack still: no step to tap, no card menu, no arrow keys', async () => {
+    const { container } = ground();
+    await compose(container);
+    expect(container.querySelector('[data-step-card]')).toBeNull();
+    expect(container.querySelector('[data-card-menu-button]')).toBeNull();
+    fireEvent.keyDown(container.querySelector('[data-stack]')!, { key: 'ArrowDown' });
+    await settled(container);
+    expect(draftOf(container)).not.toBeNull();
+    expect(topCard(container).querySelector('[data-draft-card]')).not.toBeNull();
+  });
+
+  it('moves to its date’s slot once the date rests, staying on top, the stair re-formed around it', async () => {
+    const { container } = ground();
+    const id = await compose(container);
+    // Between mid (Sep 12) and soup (Sep 8).
+    await dated(container, '2026-09-10');
+    await waitFor(() => expect(stair(container, 'up')).toEqual(['mid']), { timeout: 2000 });
+    expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
+    expect(stair(container, 'down')[0]).toBe('soup');
+    // The ring follows it to its new day.
+    await ringed(container, id);
+    await settled(container);
+    // On a day with a post already, written now, it comes first.
+    await dated(container, '2026-09-12');
+    await waitFor(() => expect(stair(container, 'up')).toEqual(['late']), { timeout: 2000 });
+    expect(stair(container, 'down')[0]).toBe('mid');
+  });
+
+  it('discards at once when empty; asks inside the card when written, never a browser dialog', async () => {
+    const confirm = vi.spyOn(window, 'confirm');
+    const { container } = ground();
+    await compose(container);
+    fireEvent.click(container.querySelector('[data-draft-cancel]')!);
+    await waitFor(() => expect(draftOf(container)).toBeNull());
+
+    await compose(container);
+    fireEvent.change(field(container, 'Content'), { target: { value: 'a walk' } });
+    fireEvent.click(container.querySelector('[data-draft-cancel]')!);
+    const ask = container.querySelector('[data-draft-confirm]')!;
+    expect(ask.textContent).toContain('Discard this page?');
+    fireEvent.click(ask.querySelector('[data-draft-keep]')!);
+    expect(container.querySelector('[data-draft-confirm]')).toBeNull();
+    expect(field(container, 'Content').value).toBe('a walk');
+    fireEvent.click(container.querySelector('[data-draft-cancel]')!);
+    fireEvent.click(container.querySelector('[data-draft-discard]')!);
+    await waitFor(() => expect(draftOf(container)).toBeNull());
+    expect(confirm).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it('discards on Esc', async () => {
+    const { container } = ground();
+    await compose(container);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(draftOf(container)).toBeNull());
+  });
+
+  it('saves in place: the same card, out of edit mode, under its own id, the ring at its mark', async () => {
+    const { container } = ground();
+    const id = await compose(container);
+    await dated(container, '2026-09-10');
+    fireEvent.change(field(container, 'Title'), { target: { value: 'Sea wall' } });
+    fireEvent.change(field(container, 'Content'), { target: { value: 'windy' } });
+    fireEvent.click(container.querySelector('[data-draft-save]')!);
+    expect(saves).toHaveLength(1);
+    expect(saves[0].input.id).toBe(id);
+    expect(saves[0].input.declaredStart).toBe('2026-09-10');
+    // Out of edit mode at once, in the same seat.
+    expect(draftOf(container)).toBeNull();
+    expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
+    expect(topCard(container).querySelector('[data-card-title]')!.textContent).toContain(
+      'Sea wall',
+    );
+    expect(stair(container, 'up')).toEqual(['mid']);
+    await ringed(container, id);
+    saves[0].resolve({ ok: true, splash: { id } });
+  });
+
+  it('opens the draft again, its fields intact, when the save is refused, and says why', async () => {
+    const { container } = ground();
+    const id = await compose(container);
+    fireEvent.change(field(container, 'Title'), { target: { value: 'Sea wall' } });
+    fireEvent.click(container.querySelector('[data-draft-save]')!);
+    expect(draftOf(container)).toBeNull();
+    saves[0].resolve({ ok: false, message: 'The server said no.' });
+    await waitFor(() => expect(draftOf(container)).not.toBeNull());
+    expect(draftOf(container)!.getAttribute('data-draft-card')).toBe(id);
+    expect(field(container, 'Title').value).toBe('Sea wall');
+    expect(container.querySelector('[data-draft-error]')!.textContent).toBe('The server said no.');
+    expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
   });
 });

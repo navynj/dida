@@ -2,13 +2,15 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 
+import type { SheetContext } from '@/features/splash-sheet/splash-composer';
 import type { MyCategory } from '@/lib/queries/profile';
 
 /**
  * What the shell read once for every page (0059): my lanes, for the
- * settings sheet's tabs to open from at once, with nothing to fetch.
+ * settings sheet's tabs to open from at once, with nothing to fetch; and
+ * what the composer needs, for the draft card on a stack (H80).
  */
-type ShellData = { categories: MyCategory[] };
+type ShellData = { categories: MyCategory[]; compose?: SheetContext | null };
 
 const Context = createContext<ShellData>({ categories: [] });
 

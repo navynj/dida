@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useInputSheet } from '@/features/input-sheet/sheet-provider';
@@ -14,6 +14,10 @@ import type { IsoDate } from '@/lib/time';
 import { useOptimisticAction } from '@/lib/use-optimistic-action';
 
 import { FlipBoard } from './diving-board-flip';
+import { DraftCard } from './draft-card';
+import { useShellData } from './shell-data';
+import { seatDraft } from './stack-draft';
+import { useStackDraft } from './use-stack-draft';
 import { GroundFoot } from './ground-foot';
 import { byNewest, newestIn, placeCard, withEdits, type Card, type GridColumn } from './grid';
 import { LaneGrid, type GridHandle, type Ring } from './lane-grid';
@@ -116,15 +120,12 @@ export function HomeGround({
   // Every visit opens on the Calendar, not the view used last (review); a
   // view chosen here holds while I stay.
   const [view, setView] = useState<HomeView>(initialView);
-  const {
-    openSheet,
-    pendingDrop,
-    clearDropped,
-    dropMessage,
-    pendingDeletes,
-    markDeleted,
-    pendingEdits,
-  } = useInputSheet();
+  const { pendingDrop, clearDropped, dropMessage, pendingDeletes, markDeleted, pendingEdits } =
+    useInputSheet();
+  // Compose writes on the stack (H80): a draft card, seated by its date.
+  const { compose } = useShellData();
+  const stackDraft = useStackDraft(timeZone, today);
+  const writing = stackDraft.draft !== null;
   const lanes = useOptimisticAction(categories);
   // Pinned from the card's menu shows at once (CLAUDE.md, the principle).
   const pins = useOptimisticAction(pinned);
@@ -183,7 +184,9 @@ export function HomeGround({
     ],
     [lanes.value, poolColumns, pendingColumn],
   );
-  const ids = useMemo(() => shown.map((card) => card.splash.id), [shown]);
+  // The stack, the grid and the board hold the draft too, on its date (H80).
+  const seated = useMemo(() => seatDraft(shown, stackDraft.card), [shown, stackDraft.card]);
+  const ids = useMemo(() => seated.map((card) => card.splash.id), [seated]);
   // What opens on top: the post a page sent Home back to, else the month's
   // newest under `?m=`, else the newest.
   const [initialTop] = useState(
@@ -195,6 +198,20 @@ export function HomeGround({
   );
   const flip = useFlip(ids, initialTop, board === 'stair' ? -1 : 1);
   const { heading, bringForward, jumpTo } = flip;
+  // A draft open: it comes to the top on the flip's spring, and nothing else
+  // is brought up until it is saved or discarded (H80).
+  const draftId = stackDraft.draft?.id ?? null;
+  useEffect(() => {
+    if (draftId) bringForward(draftId);
+    // The draft opening is the event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId]);
+  const pickWhenFree = useCallback(
+    (id: string): void => {
+      if (!writing) bringForward(id);
+    },
+    [writing, bringForward],
+  );
   // The calendar's hand-set layouts as the panel edits them (review): drawn
   // at once, saved when the sliders rest; mine on Home.
   // Each save the database takes, kept to undo per piece and view until I leave (review).
@@ -218,8 +235,17 @@ export function HomeGround({
   const laneView = view === 'lane';
   // The panel edits the view on screen: the Calendar's layouts, or the Lane view's.
   const viewDrafts = laneView ? laneDrafts : drafts;
+  // The draft's mark on its day, where the ring sits while it is written (H80).
+  const boardCards = useMemo(
+    () => seatDraft(drafts.drawn, stackDraft.card),
+    [drafts.drawn, stackDraft.card],
+  );
+  const gridCards = useMemo(
+    () => seatDraft(laneView ? laneDrafts.drawn : shown, stackDraft.card),
+    [laneView, laneDrafts.drawn, shown, stackDraft.card],
+  );
   const topCard = viewDrafts.drawn.find((card) => card.splash.id === heading) ?? null;
-  const goTo = bringForward;
+  const goTo = pickWhenFree;
   // Direct manipulation (review): a second tap on the top card's piece edits
   // it by hand. Every Home layout is mine to set. More opens the panel on a
   // desktop and the sheet on a phone.
@@ -295,6 +321,18 @@ export function HomeGround({
     previousHeading.current = heading;
     // The heading changing is the event; the rest is read when it fires.
   }, [heading]);
+
+  // The draft seated again on another day: the ring follows it there, and
+  // the board turns to that day's page (H80).
+  const draftDay = stackDraft.card?.day ?? null;
+  const ringedDay = useRef(draftDay);
+  useEffect(() => {
+    const was = ringedDay.current;
+    ringedDay.current = draftDay;
+    if (draftId && draftDay && was && was !== draftDay) ringAt(draftId);
+    // The day changing is the event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftDay]);
 
   // A post just dropped lands on top of the stack, on the spring, ringed.
   const droppedId = pendingDrop?.splash.id ?? null;
@@ -392,7 +430,7 @@ export function HomeGround({
             // Lane view: a tap brings the post's card to the top.
             <BoardFrame>
               <MonthBoard
-                cards={drafts.drawn}
+                cards={boardCards}
                 month={boardMonth}
                 onMonth={setBoardMonth}
                 today={today}
@@ -412,7 +450,7 @@ export function HomeGround({
               <LaneGrid
                 ref={grid}
                 view={view}
-                cards={laneView ? laneDrafts.drawn : shown}
+                cards={gridCards}
                 pieces
                 onDrawn={setRecipes}
                 categories={columns}
@@ -439,7 +477,7 @@ export function HomeGround({
             <EditModeDone onDone={toggleEditMode} />
           ) : board === 'stair' ? (
             <StairBoard
-              cards={shown}
+              cards={seated}
               flip={flip}
               categories={lanes.value}
               initials={initials}
@@ -448,6 +486,23 @@ export function HomeGround({
               onDelete={remove}
               low={boardView}
               collapsed={editing.activeId !== null}
+              expanded={writing}
+              draft={
+                stackDraft.draft && compose
+                  ? {
+                      id: stackDraft.draft.id,
+                      face: (
+                        <DraftCard
+                          draft={stackDraft.draft}
+                          context={compose}
+                          onReseat={stackDraft.reseat}
+                          onDiscard={stackDraft.discard}
+                          onSave={stackDraft.save}
+                        />
+                      ),
+                    }
+                  : null
+              }
             />
           ) : (
             <FlipBoard cards={shown} flip={flip} categories={lanes.value} initials={initials} />
@@ -487,11 +542,11 @@ export function HomeGround({
 
           {/* The foot (H23): Home — each tap switches the view, Lane to
               Date and back (review) — then Pool, and compose at the right. */}
-          <GroundFoot here="home" onCompose={() => openSheet()} />
+          <GroundFoot here="home" onCompose={() => stackDraft.open()} />
         </div>
 
         {/* Wide: the same three, stacked at the right edge (review). */}
-        <GroundFoot slot="wide" here="home" onCompose={() => openSheet()} />
+        <GroundFoot slot="wide" here="home" onCompose={() => stackDraft.open()} />
       </div>
 
       {newLane ? (

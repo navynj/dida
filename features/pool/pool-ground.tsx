@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Monogram } from '@/components/ui/monogram';
 
 import { GroundFoot } from '@/features/home/ground-foot';
-import { withEdits, type Card } from '@/features/home/grid';
+import { byNewest, withEdits, type Card } from '@/features/home/grid';
+import { DraftCard } from '@/features/home/draft-card';
+import { useShellData } from '@/features/home/shell-data';
+import { seatDraft } from '@/features/home/stack-draft';
+import { useStackDraft } from '@/features/home/use-stack-draft';
 import { LaneGrid, type Ring } from '@/features/home/lane-grid';
 import { PinnedCards } from '@/features/home/pinned-cards';
 import { StairBoard } from '@/features/home/stair-board';
@@ -89,15 +93,8 @@ export function PoolGround({
   const [sheet, setSheet] = useState<Sheet>(null);
   const settings = useSettings();
   const [profile, setProfile] = useState(false);
-  const {
-    openSheet,
-    pendingDrop,
-    clearDropped,
-    pendingDeletes,
-    markDeleted,
-    dropMessage,
-    pendingEdits,
-  } = useInputSheet();
+  const { pendingDrop, clearDropped, pendingDeletes, markDeleted, dropMessage, pendingEdits } =
+    useInputSheet();
 
   // Opening a pool makes it the one the Pool tab opens, seen as of now.
   useEffect(() => rememberVisit(poolId), [poolId]);
@@ -130,7 +127,8 @@ export function PoolGround({
             branches: dropHere.branches?.map((branch) => ({ ...branch, column: me })),
           }
         : dropHere;
-    return [seated, ...kept];
+    // Seated by its date, as the draft it was written in was (H80).
+    return [seated, ...kept].sort(byNewest);
   }, [
     cards,
     pendingEdits,
@@ -167,12 +165,38 @@ export function PoolGround({
     void (card.branches ? deleteJointSplash(poolId, card.splash.id) : deleteSplash(card.splash.id));
   };
 
-  const ids = useMemo(() => shown.map((c) => c.splash.id), [shown]);
+  // Compose writes on the stack (H80): a draft card, seated by its date; in
+  // Members, in my column.
+  const { compose } = useShellData();
+  const stackDraft = useStackDraft(timeZone, today);
+  const writing = stackDraft.draft !== null;
+  const draftCard = useMemo(
+    () =>
+      stackDraft.card && kind === 'members' ? { ...stackDraft.card, column: me } : stackDraft.card,
+    [stackDraft.card, kind, me],
+  );
+  const seatedCards = useMemo(() => seatDraft(shown, draftCard), [shown, draftCard]);
+  const ids = useMemo(() => seatedCards.map((c) => c.splash.id), [seatedCards]);
   const [initialTop] = useState(() =>
     topParam && ids.includes(topParam) ? topParam : (ids[0] ?? null),
   );
   const flip = useFlip(ids, initialTop, -1);
-  const { heading, bringForward } = flip;
+  const { heading } = flip;
+  // A draft open comes to the top, and nothing else is brought up until it
+  // is saved or discarded (H80).
+  const draftId = stackDraft.draft?.id ?? null;
+  useEffect(() => {
+    if (draftId) flip.bringForward(draftId);
+    // The draft opening is the event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId]);
+  const flipTo = flip.bringForward;
+  const bringForward = useCallback(
+    (id: string): void => {
+      if (!writing) flipTo(id);
+    },
+    [writing, flipTo],
+  );
   // The calendar's hand-set layouts as the panel edits them (review): drawn
   // at once, saved when the sliders rest; the pool's here.
   // Each save the database takes, kept to undo per piece and view until I leave (review).
@@ -209,6 +233,13 @@ export function PoolGround({
   const laneKind = kind === 'lane';
   const membersKind = kind === 'members';
   const viewDrafts = laneKind ? laneDrafts : membersKind ? membersDrafts : drafts;
+  // The draft's mark on its day, where the ring sits while it is written (H80).
+  const boardCards = useMemo(() => seatDraft(drafts.drawn, draftCard), [drafts.drawn, draftCard]);
+  const gridCards = useMemo(
+    () =>
+      seatDraft(laneKind ? laneDrafts.drawn : membersKind ? membersDrafts.drawn : shown, draftCard),
+    [laneKind, membersKind, laneDrafts.drawn, membersDrafts.drawn, shown, draftCard],
+  );
   const topCard = viewDrafts.drawn.find((card) => card.splash.id === heading) ?? null;
 
   const [ring, setRing] = useState<Ring | null>(() =>
@@ -223,6 +254,19 @@ export function PoolGround({
     }
     previous.current = heading;
   }, [heading]);
+  // The draft seated again on another day: the ring follows it there (H80).
+  const draftDay = draftCard?.day ?? null;
+  const ringedDay = useRef(draftDay);
+  useEffect(() => {
+    const was = ringedDay.current;
+    ringedDay.current = draftDay;
+    if (draftId && draftDay && was && was !== draftDay) {
+      seq.current += 1;
+      setRing({ id: draftId, seq: seq.current });
+    }
+    // The day changing is the event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftDay]);
   const droppedId = dropHere?.splash.id ?? null;
   useEffect(() => {
     if (droppedId) bringForward(droppedId);
@@ -232,7 +276,7 @@ export function PoolGround({
 
   // Re-tapping Pool while in a pool walks the views; the toggle follows (review).
   // Compose from here defaults to this pool, its lanes as I linked them (H23).
-  const composeHere = (): void => openSheet(poolScopeOf(view));
+  const composeHere = (): void => stackDraft.open(poolScopeOf(view));
   // The Board view's month: that of the post on top, else this month.
   const [boardMonth, setBoardMonth] = useState(() => {
     const top = shown.find((c) => c.splash.id === initialTop);
@@ -325,7 +369,7 @@ export function PoolGround({
 
           {pinnedStrip('phone')}
 
-          {shown.length === 0 && !boardView ? (
+          {shown.length === 0 && !boardView && !writing ? (
             <p data-pool-empty className="px-6 pt-6 text-sm/relaxed text-white/80">
               Nothing in this diary yet. Pages in your connected categories land here, and so do
               joint pages anyone opens.
@@ -336,7 +380,7 @@ export function PoolGround({
             <BoardFrame>
               <MonthBoard
                 spanScope={`pool.${poolId}`}
-                cards={drafts.drawn}
+                cards={boardCards}
                 month={boardMonth}
                 onMonth={setBoardMonth}
                 today={today}
@@ -355,7 +399,7 @@ export function PoolGround({
           ) : (
             <LaneGrid
               view={kind === 'date' ? 'date' : 'lane'}
-              cards={laneKind ? laneDrafts.drawn : membersKind ? membersDrafts.drawn : shown}
+              cards={gridCards}
               // The Calendar's pieces in the Lane view and Members (review).
               pieces
               onDrawn={setRecipes}
@@ -382,7 +426,7 @@ export function PoolGround({
             <EditModeDone onDone={toggleEditMode} />
           ) : (
             <StairBoard
-              cards={shown}
+              cards={seatedCards}
               flip={flip}
               categories={laneNames}
               initials=""
@@ -391,6 +435,23 @@ export function PoolGround({
               onDelete={remove}
               low={boardView}
               collapsed={editing.activeId !== null}
+              expanded={writing}
+              draft={
+                stackDraft.draft && compose
+                  ? {
+                      id: stackDraft.draft.id,
+                      face: (
+                        <DraftCard
+                          draft={stackDraft.draft}
+                          context={compose}
+                          onReseat={stackDraft.reseat}
+                          onDiscard={stackDraft.discard}
+                          onSave={stackDraft.save}
+                        />
+                      ),
+                    }
+                  : null
+              }
               hrefFor={(id) => shown.find((c) => c.splash.id === id)?.href ?? poolPath(poolId)}
             />
           )}

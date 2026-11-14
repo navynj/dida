@@ -81,7 +81,7 @@ export default async function ShellLayout({ children, modal }: LayoutProps<'/'>)
         <SplashOpeningProvider>
           <NotificationsProvider initialUnread={unread}>
             <InputSheetProvider>
-              <ShellDataProvider value={{ categories }}>
+              <ShellDataProvider value={{ categories, compose: context }}>
                 <div className="flex min-h-dvh flex-col">
                   {/* Watched: a page that draws nothing is reported and recovered. */}
                   <PageSlot>{children}</PageSlot>
