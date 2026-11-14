@@ -23,11 +23,14 @@ export function EmojiInput({
   onChange,
   label,
   placeholder,
+  className = 'bg-pool-100 h-14 w-14 shrink-0 rounded-full text-center text-3xl/none',
 }: {
   value: string;
   onChange: (icon: string) => void;
   label: string;
   placeholder?: string;
+  /** Its size and surface: a quiet 56px disc, or inline at a title's size (the draft card, H80). */
+  className?: string;
 }) {
   return (
     <input
@@ -45,7 +48,7 @@ export function EmojiInput({
       autoCorrect="off"
       autoCapitalize="off"
       spellCheck={false}
-      className="bg-pool-100 h-14 w-14 shrink-0 rounded-full text-center text-3xl/none outline-none placeholder:opacity-30"
+      className={`${className} outline-none placeholder:opacity-30`}
     />
   );
 }
