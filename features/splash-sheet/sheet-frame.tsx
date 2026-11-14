@@ -100,13 +100,15 @@ export function SheetFooter({ children }: { children: ReactNode }) {
 }
 
 /** The visual viewport's height and its distance from the layout viewport's bottom (the keyboard). */
-function useVisualViewport(
+export function useVisualViewport(
   within: React.RefObject<HTMLElement | null>,
+  /** Off, nothing is listened to (the stack, until it expands for a draft). */
+  enabled = true,
 ): { bottom: number; height: number } | null {
   const [viewport, setViewport] = useState<{ bottom: number; height: number } | null>(null);
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv) return;
+    if (!vv || !enabled) return;
     const keepFocusInView = (): void => {
       const active = document.activeElement as HTMLElement | null;
       if (active && within.current?.contains(active) && active.matches('input, textarea')) {
@@ -128,6 +130,6 @@ function useVisualViewport(
       vv.removeEventListener('resize', update);
       vv.removeEventListener('scroll', update);
     };
-  }, [within]);
-  return viewport;
+  }, [within, enabled]);
+  return enabled ? viewport : null;
 }

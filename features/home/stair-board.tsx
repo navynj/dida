@@ -1,7 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { motion, useSpring, useTransform, type MotionValue, type PanInfo } from 'motion/react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  type MotionValue,
+  type PanInfo,
+} from 'motion/react';
 
 import { useBackdropFrost } from '@/components/ui/use-backdrop-frost';
 import { useWide } from '@/components/ui/use-wide';
@@ -9,6 +17,7 @@ import { usePrefersReducedMotion } from '@/components/ui/waves/use-reduced-motio
 import type { MyCategory } from '@/lib/queries/profile';
 
 import { useTheme } from '@/features/people/theme-provider';
+import { SHEET_TOP_GAP_PX, useVisualViewport } from '@/features/splash-sheet/sheet-frame';
 
 import { CARD_PX, CardFace, face, SPINE_PX, TINT_STEP } from './card-face';
 import { CardMenu } from './card-menu';
@@ -202,6 +211,8 @@ export function StairBoard({
   hrefFor,
   low = false,
   collapsed = false,
+  draft = null,
+  expanded = false,
 }: {
   /** Newest first, in the order `flip.ids` follows. */
   cards: Card[];
@@ -221,11 +232,26 @@ export function StairBoard({
    * and comes back whole when the piece is let go.
    */
   collapsed?: boolean;
+  /**
+   * A page being written on the stack (H80): its card shows `face` while it
+   * is on top, and nothing flips the stack until it is saved or discarded.
+   */
+  draft?: { id: string; face: ReactNode } | null;
+  /**
+   * On a phone, while a draft is written (H80): the opposite of
+   * `collapsed` — the stack takes the visible viewport, the keyboard's room
+   * taken out, less the sheet's top band, and the top card most of it.
+   */
+  expanded?: boolean;
 }) {
   const { ids, n, next, bringForward } = flip;
   const byId = new Map(cards.map((card) => [card.splash.id, card]));
   const wide = useWide();
   const horizontal = wide && SIDEWAYS;
+  const reducedMotion = usePrefersReducedMotion();
+  // Writing: the stack is held still under the draft (H80).
+  const writing = draft !== null;
+  const tall = expanded && !wide;
 
   // The board measures its room. On a phone the box is the card's own and
   // the stair runs down; on a wide screen the board fills its half, the
@@ -241,6 +267,8 @@ export function StairBoard({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+  // Expanded, the box is pinned to what the keyboard leaves (H80), as a sheet is.
+  const viewport = useVisualViewport(box, tall);
   let stair: Stair;
   if (horizontal) {
     const width = room?.width ?? 0;
@@ -267,11 +295,16 @@ export function StairBoard({
   } else {
     // Low only on a phone: a wide screen's column has the height to spare.
     const short = low && !wide;
-    const down = short ? LOW_DOWN : DOWN;
+    // Expanded for a draft, one step below so the card has the room (H80).
+    const down = short || tall ? LOW_DOWN : DOWN;
+    const least = short ? LOW_CARD_PX : CARD_PX;
     stair = {
       horizontal: false,
       width: room?.width ?? 0,
-      height: Math.max(short ? LOW_CARD_PX : CARD_PX, (room?.height ?? 0) - down * STEP_PX),
+      // A phone's card is its own height, its box sized by the stack; only a
+      // box sized from outside — the wide column, the expanded overlay —
+      // gives the card what the steps leave.
+      height: wide || tall ? Math.max(least, (room?.height ?? 0) - down * STEP_PX) : least,
       left: 0,
       down,
       up: UP,
@@ -336,6 +369,7 @@ export function StairBoard({
   };
   // The arrow keys, when the stack has focus: left or up back, right or down forward.
   const onKeyDown = (event: React.KeyboardEvent): void => {
+    if (writing) return;
     const at = Math.max(0, ids.indexOf(flip.heading ?? ''));
     const forward = event.key === 'ArrowRight' || event.key === 'ArrowDown';
     const back = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
@@ -345,15 +379,51 @@ export function StairBoard({
     bringForward(target);
   };
 
+  // The draft seated again by its date (H80): the order changes under a
+  // top card that stays. Each card's distance from the top as it was is
+  // kept, and one spring (`q`) carries every card from there to its new
+  // seat — the neighbours stepping past the draft, which never moves.
+  const order = ids.join(',');
+  const [seen, setSeen] = useState({ order, ids, top: flip.topId });
+  const [reseat, setReseat] = useState<{ from: Map<string, number>; seq: number } | null>(null);
+  if (seen.order !== order) {
+    if (writing && seen.top === draft.id && flip.topId === draft.id && next === n) {
+      const before = seen.ids.indexOf(draft.id);
+      const from = new Map(seen.ids.map((id, i) => [id, i - before]));
+      // Under reduced motion the cards take their new seats at once.
+      if (!reducedMotion && ids.some((id, i) => from.has(id) && from.get(id) !== i - n))
+        setReseat({ from, seq: (reseat?.seq ?? 0) + 1 });
+    }
+    setSeen({ order, ids, top: flip.topId });
+  }
+  const q = useMotionValue(1);
+  const reseatSeq = reseat?.seq ?? 0;
+  useLayoutEffect(() => {
+    if (reseatSeq === 0) return;
+    q.jump(0);
+    const controls = animate(q, 1, FLIP_SPRING);
+    void controls.then(() => setReseat(null));
+    return () => controls.stop();
+  }, [reseatSeq, q]);
+  // While it settles, a card that was in sight stays, on its way out.
+  const fromOf = (id: string): number | undefined => reseat?.from.get(id);
+
   // Only what can be seen is rendered: the two stairs around the top, at
   // both ends of the motion in flight.
   const first = Math.max(0, Math.min(n, next) - UP);
   const last = Math.min(ids.length - 1, Math.max(n, next) + stair.down);
   const pages: number[] = [];
   for (let i = first; i <= last; i += 1) pages.push(i);
+  if (reseat) {
+    for (const [id, d] of reseat.from) {
+      const i = ids.indexOf(id);
+      if (i >= 0 && d >= -UP && d <= stair.down && !pages.includes(i)) pages.push(i);
+    }
+    pages.sort((a, b) => a - b);
+  }
 
   const top = flip.heading ? byId.get(flip.heading) : undefined;
-  if (collapsed && !wide && top) {
+  if (collapsed && !wide && top && !writing) {
     const lane = laneOfCard(top, categories);
     return (
       <div ref={box} data-diving-board data-board="stair" className="relative z-10 shrink-0 px-4">
@@ -377,16 +447,32 @@ export function StairBoard({
       ref={box}
       data-diving-board
       data-board="stair"
-      className="relative z-10 shrink-0 px-4 lg:min-h-0 lg:flex-1 lg:px-0"
+      data-expanded={tall ? '' : undefined}
+      className={
+        tall
+          ? // Over the ground, from under the sheet's top band to the keyboard (H80).
+            'fixed inset-x-0 z-30 mx-auto max-w-xl px-4'
+          : 'relative z-10 shrink-0 px-4 lg:min-h-0 lg:flex-1 lg:px-0'
+      }
+      style={
+        tall
+          ? {
+              top: `max(${SHEET_TOP_GAP_PX}px, env(safe-area-inset-top, 0px))`,
+              bottom: viewport?.bottom ?? 0,
+            }
+          : undefined
+      }
     >
       {cards.length > 0 ? (
         <div
           data-stack
           data-axis={horizontal ? 'x' : 'y'}
-          tabIndex={0}
+          data-writing={writing ? '' : undefined}
+          tabIndex={writing ? -1 : 0}
           onKeyDown={onKeyDown}
-          className="relative outline-none select-none"
-          style={{ height: stackHeight, touchAction: 'none' }}
+          // Writing, the words in the draft are selectable as anywhere.
+          className={`relative outline-none ${writing ? '' : 'select-none'}`}
+          style={{ height: stackHeight, touchAction: writing ? 'auto' : 'none' }}
         >
           {pages.map((i) => {
             const card = byId.get(ids[i]);
@@ -409,6 +495,10 @@ export function StairBoard({
                 onPin={(pinned) => onPin(card, pinned)}
                 onDelete={() => onDelete(card)}
                 href={hrefFor?.(card.splash.id)}
+                writing={writing}
+                draftFace={card.splash.id === draft?.id ? draft.face : null}
+                q={q}
+                reseatFrom={fromOf(card.splash.id)}
               />
             ) : null;
           })}
@@ -436,6 +526,10 @@ function Step({
   onPin,
   onDelete,
   href,
+  writing,
+  draftFace,
+  q,
+  reseatFrom,
 }: {
   card: Card;
   index: number;
@@ -453,6 +547,13 @@ function Step({
   onPin: (pinned: boolean) => void;
   onDelete: () => void;
   href?: string;
+  /** A draft is open: nothing here flips the stack (H80). */
+  writing: boolean;
+  /** This card is the draft: its face while on top. */
+  draftFace: ReactNode;
+  /** The re-seat's progress, and where this card was before it (H80). */
+  q: MotionValue<number>;
+  reseatFrom: number | undefined;
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const frostGlass = useBackdropFrost();
@@ -473,8 +574,12 @@ function Step({
   // steps parted nothing once the back cards lost their line.
   const base = theme.mode === 'pastel' ? themeHex(theme.color) : hex;
 
-  // The card's distance from the top as the stack's depth moves.
-  const d = useTransform(p, (v) => (reducedMotion ? to : lerp(from, to, clamp01(v))));
+  // The card's distance from the top as the stack's depth moves, and, while
+  // a draft is seated again, from where it was to where it is going.
+  const d = useTransform([p, q], ([pv, qv]) => {
+    const at = reducedMotion ? to : lerp(from, to, clamp01(pv as number));
+    return reseatFrom === undefined ? at : lerp(reseatFrom, at, clamp01(qv as number));
+  });
   const y = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).y);
   const x = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).x);
   const scale = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).scale);
@@ -499,7 +604,12 @@ function Step({
   const frontEdge = useTransform(d, (v) => 1 - clamp01(Math.abs(v)));
   const inkOpacity = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).ink);
   // Nearer the top, nearer the eye; a card rising from below over one sliding up.
-  const zIndex = useTransform(d, (v) => Math.round((30 - Math.abs(v)) * 10) + (v >= 0 ? 1 : 0));
+  // The draft stays in front of the cards stepping past it (H80).
+  const isDraft = draftFace !== null;
+  const zIndex = useTransform(
+    d,
+    (v) => Math.round((30 - Math.abs(v)) * 10) + (v >= 0 ? 1 : 0) + (isDraft ? 5 : 0),
+  );
 
   const onTop = to === 0;
   const stairSide = to === 0 ? 'top' : to < 0 ? 'up' : 'down';
@@ -542,9 +652,9 @@ function Step({
       // `to`, a grab moved them to the incoming card mid-gesture, the
       // release never arrived and the stack stayed stuck in flight — every
       // tap and swipe after the first went dead (review, touch).
-      onPanStart={from === 0 ? onPanStart : undefined}
-      onPan={from === 0 ? onPan : undefined}
-      onPanEnd={from === 0 ? onPanEnd : undefined}
+      onPanStart={from === 0 && !writing ? onPanStart : undefined}
+      onPan={from === 0 && !writing ? onPan : undefined}
+      onPanEnd={from === 0 && !writing ? onPanEnd : undefined}
     >
       {/* The face, clipped to the card's corners so the frost stays inside. */}
       <motion.div
@@ -563,16 +673,20 @@ function Step({
             className="absolute inset-0"
             style={{ opacity: touchesTop ? fullOpacity : 1 }}
           >
-            <CardFace
-              card={card}
-              lane={lane}
-              initials={initials}
-              edge="full"
-              href={href}
-              onClickCapture={guard}
-              compact={!wide}
-            />
-            {onTop && !moving ? (
+            {isDraft && onTop ? (
+              draftFace
+            ) : (
+              <CardFace
+                card={card}
+                lane={lane}
+                initials={initials}
+                edge="full"
+                href={href}
+                onClickCapture={guard}
+                compact={!wide}
+              />
+            )}
+            {onTop && !moving && !isDraft ? (
               <CardMenu card={card} pinned={pinned} onPin={onPin} onDelete={onDelete} />
             ) : null}
           </motion.div>
@@ -586,7 +700,7 @@ function Step({
                 the whole face is, the cards in front covering the rest. */}
             {/* Live while cards move, too: a tap during a landing moves on
                 rather than waiting it out (review). */}
-            {stairSide !== 'top' ? (
+            {stairSide !== 'top' && !writing ? (
               <button
                 type="button"
                 data-step-card={card.splash.id}
