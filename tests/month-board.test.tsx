@@ -41,6 +41,7 @@ import {
 } from '@/features/month-board/layout';
 import type { BoardLayoutJson } from '@/features/month-board/board-layout';
 import { MonthBoard } from '@/features/month-board/month-board';
+import { autoLabel } from '@/features/month-board/auto-label';
 import { PeopleProvider } from '@/features/people/people-provider';
 import { summarizeSplash, type Splash, type SplashBlock } from '@/features/splash/summary';
 import { written } from './written-on';
@@ -771,9 +772,11 @@ describe('three recipes, always readable (review)', () => {
     const layout = layoutWeekBoard(WEEK, TODAY, { width: 728 });
     const bare = layout.pieces.find((p) => p.label === 'none' && p.recipe === 'A');
     if (bare) expect([bare.pad.top, bare.pad.bottom]).toEqual([4, 4]);
-    const joint = layoutWeekBoard([{ ...WEEK[0], joint: true, together: true }], TODAY, {
-      width: 728,
-    }).pieces[0];
+    const joint = layoutWeekBoard(
+      [{ ...WEEK[0], layout: { ...WEEK[0].layout, label: { style: 'white' } } }],
+      TODAY,
+      { width: 728 },
+    ).pieces[0];
     expect(joint.pad.top).toBe(6);
     expect(joint.pad.bottom).toBeGreaterThanOrEqual(6);
     expect([joint.pad.left, joint.pad.right]).toEqual([8, 8]);
@@ -901,7 +904,7 @@ describe('three recipes, always readable (review)', () => {
   });
 });
 
-describe('fills: what is the pool’s own (review)', () => {
+describe('Auto: a label’s style by its id (H79)', () => {
   const MINE = {
     ...card('mine', 'Just mine', '2026-10-21'),
     splash: { ...card('mine', 'Just mine', '2026-10-21').splash, ownPoolId: 'p-a' },
@@ -912,35 +915,32 @@ describe('fills: what is the pool’s own (review)', () => {
     together: true,
   }));
 
-  it('never fills a splash that is not joint — Just mine, shared, photo captions — and always fills a joint one', () => {
+  it('draws every record, shared or not, from its id, never two alike in a row on a day', () => {
     const layout = layoutWeekBoard([MINE, ...JOINTS, WEEK[2]], TODAY, { width: 728 });
-    expect(layout.pieces.find((p) => p.id === 'mine')!.label).toBe('none');
-    expect(layout.pieces.find((p) => p.id === 'soup')!.label).toBe('none');
-    const joint = layout.pieces.filter((p) => p.card.joint);
-    for (const p of joint) expect(['white', 'second']).toContain(p.label);
-    for (let at = 1; at < joint.length; at += 1)
-      expect(joint[at].label).not.toBe(joint[at - 1].label);
-    const { container } = board([MINE, ...JOINTS]);
-    expect(
-      container.querySelector('[data-board-piece="mine"] [data-board-label]')!.className,
-    ).not.toMatch(/bg-/);
-    expect(
-      container.querySelector('[data-board-piece="j1"] [data-board-label]')!.className,
-    ).toMatch(/bg-(white|ink)/);
+    const day = layout.pieces.filter((p) => p.day === '2026-10-21');
+    let above: string | null = null;
+    for (const p of day) {
+      expect(p.label).toBe(autoLabel(p.id, above));
+      if (above !== null) expect(p.label).not.toBe(above);
+      above = p.label;
+    }
+    // The same on a second render.
+    const again = layoutWeekBoard([MINE, ...JOINTS, WEEK[2]], TODAY, { width: 728 });
+    expect(again.pieces.map((p) => p.label)).toEqual(layout.pieces.map((p) => p.label));
   });
 
-  it('fills by invitees, not by owner: a joint record with nobody else invited stays unfilled (0033)', () => {
-    const alone: Card = { ...card('alone', 'Alone', '2026-10-19'), joint: true, together: false };
-    const layout = layoutWeekBoard([alone], TODAY, { width: 728 });
-    expect(layout.pieces[0].label).toBe('none');
-    const { container } = board([alone]);
-    expect(
-      container.querySelector('[data-board-piece="alone"] [data-board-label]')!.className,
-    ).not.toMatch(/bg-/);
+  it('keeps a style set by hand, and my side pale', () => {
+    const set: Card = {
+      ...card('set', 'Set', '2026-10-19'),
+      layout: { label: { style: 'ink' } },
+    };
+    const side: Card = { ...card('side', 'Side', '2026-10-20'), side: true };
+    const layout = layoutWeekBoard([set, side], TODAY, { width: 728 });
+    expect(layout.pieces.find((p) => p.id === 'set')!.label).toBe('ink');
+    expect(layout.pieces.find((p) => p.id === 'side')!.label).toBe('pale');
   });
 
-  it('fills a joint splash with a single ripple, and one waiting on a member, wherever it is drawn (Home included)', () => {
-    // The pool's own, one ripple by someone else, me not yet written: Add your side.
+  it('draws a filled pick with a fill and a None pick with none; a joint one keeps its slot', () => {
     const lone: Card = {
       ...card('test', 'Test', '2026-10-19'),
       joint: true,
@@ -949,12 +949,15 @@ describe('fills: what is the pool’s own (review)', () => {
       writers: [{ authorId: 'u-mk', initials: 'MK' }],
       waitsForMe: true,
     };
-    expect(lone.splash.count).toBe(1);
-    const { container } = board([lone]);
-    const piece = container.querySelector('[data-board-piece="test"]')!;
-    expect(['white', 'second']).toContain(piece.getAttribute('data-label'));
-    expect(piece.querySelector('[data-board-label]')!.className).toMatch(/bg-(white|ink)/);
-    expect(piece.querySelector('[data-board-slot]')).not.toBeNull();
+    const { container } = board([lone, MINE]);
+    for (const id of ['test', 'mine']) {
+      const piece = container.querySelector(`[data-board-piece="${id}"]`)!;
+      const label = piece.querySelector('[data-board-label]')!.className;
+      const style = piece.getAttribute('data-label');
+      if (style === 'none') expect(label).not.toMatch(/bg-/);
+      if (style === 'white' || style === 'second') expect(label).toMatch(/bg-/);
+    }
+    expect(container.querySelector('[data-board-piece="test"] [data-board-slot]')).not.toBeNull();
   });
 });
 

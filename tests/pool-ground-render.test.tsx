@@ -30,6 +30,7 @@ vi.mock('@/features/pool/actions', () => ({
   revokeInvite: () => Promise.resolve({ ok: true }),
 }));
 
+import { AUTO_WEIGHTS } from '@/features/month-board/auto-label';
 import { InputSheetProvider, useInputSheet } from '@/features/input-sheet/sheet-provider';
 import { PeopleProvider } from '@/features/people/people-provider';
 import { PoolActivityProvider } from '@/features/pool/activity';
@@ -902,13 +903,14 @@ describe('a conversion shows at once (0022)', () => {
 });
 
 describe('a joint splash reads as the pool’s at a glance (review)', () => {
-  it('is a filled label in the Lane view; a post of one person has none', () => {
+  it('draws its label by Auto in the Lane view, as a post of one person (H79)', () => {
     setView('lane');
     const { container } = ground(A);
-    const joint = container.querySelector('[data-lane-piece="s-joint"] [data-board-piece]')!;
-    expect(['white', 'second']).toContain(joint.getAttribute('data-label'));
-    const mine = container.querySelector('[data-lane-piece="s-mine"] [data-board-piece]')!;
-    expect(mine.getAttribute('data-label')).toBe('none');
+    const auto = AUTO_WEIGHTS.map(([style]) => style as string);
+    for (const id of ['s-joint', 's-mine']) {
+      const piece = container.querySelector(`[data-lane-piece="${id}"] [data-board-piece]`)!;
+      expect(auto).toContain(piece.getAttribute('data-label'));
+    }
   });
   it('is a plain row in the List view, as every other: no pill, no background (review)', () => {
     setView('date');

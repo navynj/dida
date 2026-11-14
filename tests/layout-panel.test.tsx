@@ -35,6 +35,7 @@ vi.mock('@/features/lanes/actions', () => ({
   deleteLane: () => Promise.resolve({ ok: true }),
 }));
 
+import { autoLabel } from '@/features/month-board/auto-label';
 import { placeCard, type Card } from '@/features/home/grid';
 import { HomeGround } from '@/features/home/home-ground';
 import { InputSheetProvider } from '@/features/input-sheet/sheet-provider';
@@ -308,17 +309,18 @@ describe('a label’s width and style in the panel (review)', () => {
       target: { value: '1.5' },
     });
     expect(parseFloat(label().style.width)).toBeGreaterThan(before);
-    const auto = label().className.includes('bg-ink') ? 'ink' : 'white';
-    const other = auto === 'ink' ? 'white' : 'ink';
+    // Auto never draws Black (H79): picking it always changes the label.
+    const auto = label().className;
+    const other = 'ink';
     fireEvent.click(container.querySelector(`[data-layout-choice="${other}"]`)!);
-    expect(label().className).toContain(other === 'ink' ? 'bg-ink' : 'bg-white');
+    expect(label().className).toContain('bg-ink');
     await act(async () => {
       vi.advanceTimersByTime(LAYOUT_SAVE_MS);
       await Promise.resolve();
     });
     expect(saved.at(-1)!.patch).toEqual({ label: { width: 1.5, style: other } });
     fireEvent.click(container.querySelector('[data-layout-control="Style"] button')!);
-    expect(label().className).toContain(auto === 'ink' ? 'bg-ink' : 'bg-white');
+    expect(label().className).toBe(auto);
   });
 
   it('marks the set style with a dot under its chip, every chip keeping its look (review)', () => {
@@ -354,9 +356,10 @@ describe('a label’s width and style in the panel (review)', () => {
     expect(style).not.toBeNull();
     expect(style.querySelector('[data-layout-choice="white"]')!.textContent).toBe('White');
     expect(style.querySelector('[data-layout-choice="ink"]')!.textContent).toBe('Black');
-    expect(
-      container.querySelector('[data-board-piece="s1"] [data-board-label]')!.className,
-    ).toMatch(/bg-(white|ink)/);
+    // Unset, Auto's pick by the id (H79).
+    expect(container.querySelector('[data-board-piece="s1"]')!.getAttribute('data-label')).toBe(
+      autoLabel('s1'),
+    );
   });
 
   it('names the white fill after my theme colour in light mode, where it shows as that colour', () => {
@@ -595,13 +598,10 @@ describe('hand-set layouts on the calendar (review)', () => {
       expect(layoutWeekBoard([joint], TODAY, { width: 980 }).pieces[0].label).toBe(style);
       expect(layoutWeekBoard([plain], TODAY, { width: 980 }).pieces[0].label).toBe(style);
     }
-    // Auto: a plain record has no fill; a joint one the theme colour or the
-    // second fill by the rule (H55).
-    expect(layoutWeekBoard([ONE[0]], TODAY, { width: 980 }).pieces[0].label).toBe('none');
+    // Auto: plain and joint alike, the pick by the id (H79).
+    expect(layoutWeekBoard([ONE[0]], TODAY, { width: 980 }).pieces[0].label).toBe(autoLabel('s1'));
     const joint = { ...ONE[0], joint: true, together: true };
-    expect(['white', 'second']).toContain(
-      layoutWeekBoard([joint], TODAY, { width: 980 }).pieces[0].label,
-    );
+    expect(layoutWeekBoard([joint], TODAY, { width: 980 }).pieces[0].label).toBe(autoLabel('s1'));
   });
 
   it('keeps a joint record’s faces whatever its style (0058)', () => {

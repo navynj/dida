@@ -13,7 +13,7 @@ export type SampleSplash = {
   title: string;
   lane: string;
   day: IsoDate;
-  /** Pooled with others, so its label is filled; else no fill, as a record of one's own. */
+  /** Pooled with others, so its label is filled (the theme colour); else no fill. */
   together?: boolean;
   /** A photo the app ships (`app:` path), drawn on the board as Home draws one. */
   photo?: string;
@@ -35,15 +35,23 @@ const NONE = (): void => {};
  */
 export function PoolBlock({ lanes, splashes }: { lanes: SampleLane[]; splashes: SampleSplash[] }) {
   const { cards, columns, top, water } = useMemo(() => {
-    // Filled where pooled, as Home fills a record with others in it (0033,
-    // H55); each label one lane wide, as a person can set it, so none runs
-    // past the block.
+    // Each style pinned, so the picture never follows Auto's pick (H79):
+    // the theme colour where pooled, Outline where set by hand, else none —
+    // Mix in the last lane above all, whose fill would run past the block.
+    // Each label one lane wide, as a person can set it.
     const cards = splashes.map((s) => ({
       ...placeCard(summaryOf(s), '', 'UTC'),
       together: s.together === true,
       layout: {
         ...(s.piece ? { piece: s.piece } : {}),
-        label: { width: 1, ...(s.outline ? { style: 'outline' as const } : {}) },
+        label: {
+          width: 1,
+          style: s.outline
+            ? ('outline' as const)
+            : s.together
+              ? ('white' as const)
+              : ('none' as const),
+        },
         ...(s.inline ? { icon: { inline: true } } : {}),
       },
       ...(s.photo ? { photos: [{ rippleId: s.id, path: s.photo }] } : {}),

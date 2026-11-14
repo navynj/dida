@@ -6,6 +6,7 @@ import { videoAspect, type YouTubeVideo } from '@/lib/youtube';
 
 import { iconHidden, labelHidden } from './board-layout';
 import { seedOf } from './layout-seed';
+import { autoLabel } from './auto-label';
 import { spreadPhotos } from './photo-spread';
 
 export { seedOf };
@@ -110,16 +111,9 @@ const ICON_CHARS = 2;
 const FACES_CHARS = 4;
 
 /**
- * A label's background (review): none — white words on the water — for
- * every splash but a joint one; a joint splash — the pool's own (owner
- * none, a pool set), however many ripples or authors it has — white or
- * ink, alternating within a day, wherever it is drawn.
- */
-/**
  * `pale`: my side on someone else's record (review), a period band's fill;
- * `second`: the rule's second fill for a together record, Black on the dark
- * ground and Glass on the light and pastel ones (H55, globals.css). Never
- * chosen, either.
+ * `second`: Auto's second fill (H55, H79), Black on the dark ground and
+ * Glass on the light and pastel ones (globals.css). Never chosen, either.
  */
 export type LabelStyle = 'none' | 'white' | 'ink' | 'outline' | 'pale' | 'glass' | 'second';
 /**
@@ -493,15 +487,12 @@ type Plan = { recipe: Recipe; label: LabelStyle; size: StickerSize | null };
  * being no other way to draw them); a day of two or more items has a B —
  * an A turned, which can sit by no B, A never following A. B's stickers
  * take a size by the id, never the size of the day's B before, big at
- * most once and only in a day of two or more. A record with invitees
- * (together, 0033) alternates the theme colour and the second fill with the
- * day's other such ones (H55: White and Black on the dark ground, the theme
- * colour and Glass on the light ones, where a side's pale band is Outline);
- * everything else takes no fill. Its
- * fill set by hand is the person's; a label with no fill stays so.
+ * most once and only in a day of two or more. A label's style is Auto's
+ * hashed pick (H79, auto-label.ts), never the same as the one above it on
+ * the day; my side on someone's record is pale (Outline on the light and
+ * pastel grounds, H55); a style set by hand is the person's.
  */
 function planDay(cards: Card[]): Plan[] {
-  let fill: LabelStyle | null = null;
   const recipes: Recipe[] = [];
   cards.forEach((card, at) => {
     if ((card.photos?.length ?? 0) > 0) {
@@ -531,21 +522,14 @@ function planDay(cards: Card[]): Plan[] {
   }
   let lastSize: StickerSize | null = null;
   let bigUsed = false;
+  let above: LabelStyle | null = null;
   return cards.map((card, at) => {
-    let label: LabelStyle = 'none';
     const set = card.layout?.label?.style;
-    // My side on someone's record (review): pale, as a period band.
-    if (card.side) label = 'pale';
-    else if (card.together) {
-      const drawnFill: LabelStyle = draw(card.splash.id, 'label', 2) === 0 ? 'white' : 'second';
-      // A fill set by hand (0027) is drawn as set; the next joint one alternates from it.
-      const setFill: LabelStyle | null =
-        set === 'white' ? 'white' : set === 'ink' || set === 'outline' ? 'second' : null;
-      fill = setFill ?? (drawnFill === fill ? (fill === 'white' ? 'second' : 'white') : drawnFill);
-      label = fill;
-    }
-    // Any record's style set by hand (0058) is drawn as set; unset, the rule's above.
-    if (set) label = set;
+    // My side on someone's record (review): pale, as a period band. Any
+    // other record, shared or not, takes Auto's hashed style (H79), never
+    // the one just above it; a style set by hand (0058) is drawn as set.
+    const label: LabelStyle = set ?? (card.side ? 'pale' : autoLabel(card.splash.id, above));
+    above = label;
     let size: StickerSize | null = null;
     if (recipes[at] === 'B') {
       const sizes = (['small', 'medium', 'big'] as const).filter(
