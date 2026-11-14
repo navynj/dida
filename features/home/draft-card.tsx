@@ -2,12 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { ComposerFields } from '@/features/splash-sheet/composer-fields';
+import { AddImageAffordance, MediaPreviews } from '@/features/input-sheet/media-field';
+import { EmojiInput } from '@/features/lanes/emoji-input';
+import { fallbackLane } from '@/features/pool/audience';
+import { shareLane, shareOff, shareOn } from '@/features/pool/share-draft';
+import { ComposeTop } from '@/features/splash-sheet/compose-top';
+import { ShareToRow } from '@/features/splash-sheet/share-to-row';
 import type { DropHandoff, SheetContext } from '@/features/splash-sheet/splash-composer';
 import { useComposer, type ComposerSnapshot } from '@/features/splash-sheet/use-composer';
 import type { IsoDate } from '@/lib/time';
 
-import { CARD_PAD_PX } from './card-face';
+import { DETAIL_TITLE_CLASS } from '@/features/splash/splash-header';
+
+import { DraftCategory, DraftDate } from './draft-pickers';
 import type { StackDraft } from './stack-draft';
 
 /**
@@ -17,18 +24,26 @@ import type { StackDraft } from './stack-draft';
  */
 export const RESEAT_MS = 600;
 
-/** The bottom inset the Save row keeps above the home indicator, as the sheet's footer does. */
-const BOTTOM_PAD = 'calc(1rem + env(safe-area-inset-bottom, 0px))';
+/** The bottom inset the footer keeps above the home indicator, as the sheet's does. */
+const BOTTOM_PAD = 'calc(0.75rem + env(safe-area-inset-bottom, 0px))';
+
+/** An IME is mid-composition: Chrome flags it, Safari reports keyCode 229. */
+function isComposing(event: React.KeyboardEvent): boolean {
+  return event.nativeEvent.isComposing || event.keyCode === 229;
+}
 
 /**
  * The draft card (H80): a new page written where it will live, as the top
- * card of the stack, already in edit mode. The composer's fields inside the
- * card's face (`ComposerFields`, the sheet's own), a small Cancel in its top
- * row and Save pinned to its bottom — the one filled thing on the card
- * (H20f). The fields scroll inside the card; the card never grows past it.
+ * card of the stack, already in edit mode — and already looking like the
+ * card it becomes (`CardFace`). Top to bottom: Cancel, and `…` with Save
+ * (a small filled pill once there is something to save); the date in the
+ * card's own style and the category as the card's one chip; the icon inline
+ * before the title, at the title's size; the body, filling the card and
+ * scrolling inside it; and pinned to the bottom, above the keyboard, the
+ * photos, `+ Add Image` and where it is shared.
  *
- * The date chip is where the page is seated: once it rests (`RESEAT_MS`),
- * the stack moves the draft to its date's slot. Esc or Cancel discards it;
+ * The date is where the page is seated: once it rests (`RESEAT_MS`), the
+ * stack moves the draft to its date's slot. Esc or Cancel discards it;
  * with anything written, Cancel asks first, inside the card.
  */
 export function DraftCard({
@@ -45,7 +60,12 @@ export function DraftCard({
   onSave: (handoff: DropHandoff, snapshot: ComposerSnapshot) => void;
 }) {
   const composer = useComposer({ context, pool: draft.pool, initial: draft.snapshot });
+  const c = composer;
   const [confirming, setConfirming] = useState(false);
+  const titleField = useRef<HTMLTextAreaElement>(null);
+  const bodyField = useRef<HTMLTextAreaElement>(null);
+  const { categories, pool } = c;
+  const pools = context.pools;
 
   // Seated again once the date rests: the chip's day, its end, else today.
   const start = composer.annotation?.date ?? context.today;
@@ -91,11 +111,7 @@ export function DraftCard({
       aria-label="New page"
       className="text-ink relative flex h-full flex-col"
     >
-      <div
-        data-draft-top
-        className="flex shrink-0 items-center justify-between px-5"
-        style={{ paddingTop: CARD_PAD_PX - 8 }}
-      >
+      <div data-draft-top className="flex shrink-0 items-center justify-between px-5 pt-3">
         <button
           type="button"
           data-draft-cancel
@@ -104,29 +120,151 @@ export function DraftCard({
         >
           Cancel
         </button>
+        <div className="flex items-center gap-1">
+          {/* The description, asked for from `…` (0037). */}
+          <ComposeTop describing={c.describing} onDescribing={c.setDescribing} />
+          {/* The one filled thing on the card, once there is something to save (H20f). */}
+          <button
+            type="button"
+            data-draft-save
+            disabled={!c.canCommit}
+            onClick={save}
+            className={`rounded-full px-3.5 py-1 text-sm font-medium ${
+              c.canCommit ? 'bg-main-900 text-white' : 'text-(--text-inactive)'
+            }`}
+          >
+            Save
+          </button>
+        </div>
       </div>
       {draft.error ? (
         <p role="alert" data-draft-error className="text-pool-500 shrink-0 px-5 pt-1 text-sm">
           {draft.error}
         </p>
       ) : null}
-      <div
-        data-draft-scroll
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-3 pb-4"
-      >
-        <ComposerFields composer={composer} pools={context.pools} today={context.today} />
+
+      {/* The header as the finished card has it: the date, the category's chip. */}
+      <div data-draft-header className="flex shrink-0 items-start justify-between gap-3 px-5 pt-3">
+        <DraftDate composer={c} today={context.today} />
+        <DraftCategory composer={c} pools={pools} />
       </div>
-      {/* Pinned to the card's bottom, in reach above the keyboard. */}
-      <div data-draft-footer className="shrink-0 px-5 pt-2" style={{ paddingBottom: BOTTOM_PAD }}>
-        <button
-          type="button"
-          data-draft-save
-          disabled={!composer.canCommit}
-          onClick={save}
-          className="bg-main-900 w-full rounded-full py-2.5 text-lg font-medium text-white disabled:opacity-50"
-        >
-          Save
-        </button>
+      {/* The icon inline before the title, at its size; empty, a faint glyph. */}
+      <div className="flex shrink-0 items-center gap-1.5 px-5 pt-1.5">
+        <EmojiInput
+          value={c.icon}
+          onChange={c.setIcon}
+          label="Icon"
+          placeholder={
+            (pool
+              ? pool.lanes.find((l) => l.id === c.pick?.poolLaneId)?.icon
+              : categories.find((cat) => cat.id === c.laneId)?.icon) ?? '🙂'
+          }
+          className="w-10 shrink-0 bg-transparent text-center text-3xl/none"
+        />
+        <textarea
+          ref={titleField}
+          value={c.titleText}
+          onChange={(event) => c.setTitleText(event.target.value.replace(/\n/g, ''))}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            if (isComposing(event)) return;
+            bodyField.current?.focus();
+          }}
+          placeholder="Title (optional)"
+          rows={1}
+          aria-label="Title"
+          data-sheet-title
+          className={`${DETAIL_TITLE_CLASS} text-main-900 placeholder:text-main-900 min-w-0 flex-1 resize-none leading-tight outline-none placeholder:opacity-30`}
+        />
+      </div>
+      {c.describing ? (
+        <textarea
+          value={c.description}
+          onChange={(event) => c.setDescription(event.target.value)}
+          autoFocus
+          rows={1}
+          maxLength={2000}
+          placeholder="Describe this page"
+          aria-label="Description"
+          data-compose-description-field
+          className="text-ink placeholder:text-ink border-pool-200 mx-5 mt-2 shrink-0 resize-none border-b pb-3 text-sm/relaxed outline-none placeholder:opacity-30"
+        />
+      ) : null}
+      {/* The body fills what is left and scrolls inside it. Backspace at its
+          very start walks back up to the title, as a notes app does. */}
+      <textarea
+        ref={bodyField}
+        value={c.bodyText}
+        onChange={(event) => c.setBodyText(event.target.value)}
+        onKeyDown={(event) => {
+          const el = event.currentTarget;
+          if (event.key !== 'Backspace' || el.selectionStart !== 0 || el.selectionEnd !== 0) return;
+          if (isComposing(event)) return;
+          event.preventDefault();
+          const title = titleField.current;
+          if (!title) return;
+          title.focus();
+          title.setSelectionRange(title.value.length, title.value.length);
+        }}
+        placeholder="Enter the content"
+        // The content is what is written first (H75): the cursor starts here.
+        autoFocus
+        aria-label="Content"
+        data-sheet-body
+        className="text-ink placeholder:text-ink min-h-16 w-full flex-1 resize-none overflow-y-auto overscroll-contain px-5 pt-3 text-[15px]/relaxed outline-none placeholder:opacity-30"
+      />
+
+      {/* Pinned to the card's bottom, above the keyboard: photos over the row. */}
+      <div
+        data-draft-footer
+        className="flex shrink-0 flex-col gap-2 px-5 pt-2"
+        style={{ paddingBottom: BOTTOM_PAD }}
+      >
+        <MediaPreviews
+          paths={c.mediaPaths}
+          previews={c.media.previews}
+          failed={c.media.failed}
+          onChange={c.media.change}
+        />
+        <div className="flex flex-wrap items-start gap-2">
+          <AddImageAffordance
+            attach={c.media.attach}
+            busy={c.media.busy}
+            input={c.media.input}
+            progress={c.media.progress}
+          />
+          {/* Where it is shared, said while it is written (H75): only from Home. */}
+          {pool ? null : (
+            <div className="min-w-0 flex-1">
+              <ShareToRow
+                pools={pools}
+                shared={c.audience}
+                startLane={(poolId) =>
+                  fallbackLane(
+                    categories.find((cat) => cat.id === c.laneId)?.name ?? null,
+                    pools.find((p) => p.id === poolId)?.lanes ?? [],
+                  )
+                }
+                onTurn={(poolId, poolLaneId) =>
+                  c.setShare((was) =>
+                    poolLaneId ? shareOn(was, poolId, poolLaneId) : shareOff(was, poolId),
+                  )
+                }
+                // Picked by hand: manual for this draft only, never remembered (H75).
+                onPick={(poolId, poolLaneId) =>
+                  c.setShare((was) => shareLane(was, poolId, poolLaneId))
+                }
+              />
+            </div>
+          )}
+        </div>
+        {/* With no diary to share to, the row draws nothing: said here instead. */}
+        {!pool && pools.length === 0 ? (
+          <p data-share-private className="text-pool-500 text-xs">
+            Only you can see this
+          </p>
+        ) : null}
       </div>
       {confirming ? (
         // Asked inside the card, never a browser dialog (H80).

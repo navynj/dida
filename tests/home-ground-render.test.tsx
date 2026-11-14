@@ -1365,6 +1365,9 @@ describe('the draft card (H80)', () => {
     draftOf(root)!.querySelector<HTMLTextAreaElement>(`[aria-label="${label}"]`)!;
   /** The date chip set, and the stack's seat after it has rested. */
   async function dated(root: Element, day: string): Promise<void> {
+    // The date opens its picker; the field is inside it (H80).
+    if (!draftOf(root)!.querySelector('input[type="date"]'))
+      fireEvent.click(draftOf(root)!.querySelector('[data-draft-date]')!);
     fireEvent.change(draftOf(root)!.querySelector('input[type="date"]')!, {
       target: { value: day },
     });
@@ -1373,25 +1376,54 @@ describe('the draft card (H80)', () => {
     });
   }
 
-  it('is the top card, in edit mode: the fields, Cancel, and Save as the one filled thing', async () => {
+  it('is the top card, in edit mode, looking like the card it becomes: Cancel and Save on top, the date and category, the title, the body', async () => {
     const { container } = ground();
     const id = await compose(container);
     expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
     const draft = draftOf(container)!;
+    // The top row: Cancel at the left, Save at the right; no Save at the bottom.
+    const top = draft.querySelector('[data-draft-top]')!;
+    expect(top.querySelector('[data-draft-cancel]')!.textContent).toBe('Cancel');
+    const save = top.querySelector<HTMLButtonElement>('[data-draft-save]')!;
+    expect(save.textContent).toBe('Save');
+    expect(draft.querySelectorAll('[data-draft-save]')).toHaveLength(1);
+    // Nothing written yet: nothing to save, and nothing filled.
+    expect(save.disabled).toBe(true);
+    expect(save.className).not.toContain('bg-main-900');
+    expect(save.className).toContain('text-(--text-inactive)');
+    // The header as the finished card writes it.
+    expect(draft.querySelector('[data-draft-date]')!.textContent).toBe('Sep 25 (FRI)');
+    expect(draft.querySelector('input[type="date"]')).toBeNull();
+    expect(draft.querySelector('[data-draft-category]')!.textContent).toBe('+ Category');
     expect(draft.querySelector('[aria-label="Title"]')!.getAttribute('placeholder')).toBe(
       'Title (optional)',
     );
-    expect(draft.querySelector('[aria-label="Content"]')).not.toBeNull();
-    expect(draft.querySelector('input[type="date"]')!.getAttribute('value')).toBe(TODAY);
-    expect(draft.querySelector('[data-draft-cancel]')!.textContent).toBe('Cancel');
-    const save = draft.querySelector<HTMLButtonElement>('[data-draft-save]')!;
-    expect(save.textContent).toBe('Save');
+    expect(draft.querySelector('[aria-label="Title"]')!.className).toContain('text-3xl');
+    // The icon inline, no 56px disc.
+    expect(draft.querySelector('[data-emoji-input]')!.className).not.toContain('h-14');
+    expect(draft.querySelector('[aria-label="Content"]')!.className).toContain('flex-1');
+    expect(draft.querySelector('[data-draft-footer]')!.textContent).toContain('+ Add Image');
+    expect(draft.querySelector('[data-share-private]')!.textContent).toBe('Only you can see this');
+    // Something to save: Save is the one filled thing on the card (H20f).
+    fireEvent.change(field(container, 'Content'), { target: { value: 'a walk' } });
+    expect(save.disabled).toBe(false);
     expect(save.className).toContain('bg-main-900');
     expect(draft.querySelectorAll('.bg-main-900')).toHaveLength(1);
-    // Nothing written yet: nothing to save.
-    expect(save.disabled).toBe(true);
+    fireEvent.change(field(container, 'Content'), { target: { value: '' } });
     // The newest was on top; the draft, written today, comes before it.
     expect(stair(container, 'down')[0]).toBe('late');
+    // The date's picker: the day, and + Add end date inside it.
+    fireEvent.click(draft.querySelector('[data-draft-date]')!);
+    expect(draft.querySelector('input[type="date"]')!.getAttribute('value')).toBe(TODAY);
+    fireEvent.click(draft.querySelector('[data-draft-add-end]')!);
+    expect(draft.querySelector('input[aria-label="End date"]')).not.toBeNull();
+    // The category: its chips, and the chip names the one picked.
+    fireEvent.click(draft.querySelector('[data-draft-category]')!);
+    const lane = LANES[0];
+    fireEvent.click(
+      [...document.querySelectorAll('button')].find((b) => b.textContent?.includes(lane.name))!,
+    );
+    expect(draft.querySelector('[data-draft-category]')!.textContent).toContain(lane.name);
     // The ring sits on the draft's day.
     await ringed(container, id);
   });

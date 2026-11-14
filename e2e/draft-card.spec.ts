@@ -113,7 +113,11 @@ test('compose writes on the stack: the draft moves to its date, Save keeps it th
 
   await draft.locator('[aria-label="Content"]').fill('the tide was out');
   // Seven days back: between middle (5) and far (10).
+  // The date opens its picker; the field is inside it.
+  await draft.locator('[data-draft-date]').click();
   await draft.locator('input[type="date"]').fill(daysAgo(7));
+  // Closed by a tap outside it, as any popover.
+  await draft.locator('[data-popover-close]').click({ position: { x: 5, y: 5 } });
   await expect(page.locator('[data-stack-card][data-stair="up"]')).toHaveAttribute(
     'data-stack-card',
     posts.middle,
