@@ -1431,10 +1431,10 @@ describe('the draft card (H80)', () => {
       expect(images.querySelector('[data-draft-add-image] svg')).not.toBeNull();
       expect(footer.textContent).not.toContain('+ Add Image');
       const privately = footer.querySelector('[data-share-private]')!;
-      // One row: Share to's status at its end, no line of its own (H75).
-      expect(privately.textContent).toBe('Only you');
+      // No diary to share to: no Share to, the full private sentence (H75).
+      expect(privately.textContent).toBe('Only you can see this');
+      expect(privately.closest('[data-share-to]')!.textContent).toBe('Only you can see this');
       expect(privately.closest('[data-share-to]')).not.toBeNull();
-      expect(footer.textContent).not.toContain('Only you can see this');
       expect(
         images.compareDocumentPosition(privately) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
@@ -1456,6 +1456,9 @@ describe('the draft card (H80)', () => {
       // + Add end date, on the same line, opens the end's picker straight away.
       const addEnd = draft.querySelector('[data-draft-add-end]')!;
       expect(addEnd.className).toContain('text-(--text-inactive)');
+      // Smaller and lighter than the date it follows.
+      expect(addEnd.className).toContain('text-xs');
+      expect(addEnd.className).toContain('font-light');
       fireEvent.click(addEnd);
       expect(opened).toEqual(['Date', 'End date']);
       fireEvent.change(draft.querySelector('input[aria-label="End date"]')!, {

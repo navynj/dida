@@ -180,7 +180,9 @@ export function DraftDate({ composer: c, today }: { composer: Composer; today: I
               type="button"
               data-draft-add-end
               onClick={() => openPicker(addEnd.current)}
-              className="text-sm text-(--text-inactive)"
+              // Smaller and lighter than the date: an option, not a field to fill.
+              // The weight lightens it; the colour stays text-inactive, 4.5:1.
+              className="text-xs font-light text-(--text-inactive)"
             >
               + Add end date
             </button>
