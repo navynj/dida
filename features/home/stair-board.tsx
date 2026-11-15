@@ -20,6 +20,7 @@ import { useTheme } from '@/features/people/theme-provider';
 import { SHEET_TOP_GAP_PX, useVisualViewport } from '@/features/splash-sheet/sheet-frame';
 
 import { CARD_PX, CardFace, face, SPINE_PX, TINT_STEP } from './card-face';
+import { backTitleBase, edgeTitle } from './back-title';
 import { CardMenu } from './card-menu';
 import { laneOfCard, type Card, type CardLane } from './grid';
 import { FLIP_SPRING, type Flip } from './use-flip';
@@ -633,6 +634,10 @@ function Step({
   );
   // A card moving to or from the top carries both faces and crossfades them
   // on its distance from the top, so nothing switches when it lands.
+  // A back card's title on its step's fill, darkened toward ink only as far
+  // as that fill needs for 4.5:1 (H82); continuous, so a flip never jumps it.
+  const titleBase = backTitleBase(theme.color, theme.mode);
+  const titleColour = useTransform(background, (bg) => edgeTitle(titleBase, bg));
   const fullOpacity = useTransform(d, (v) => 1 - clamp01(Math.abs(v)));
   const edgeOpacity = useTransform(d, (v) => clamp01(Math.abs(v)));
   // The front card alone keeps its hairline, white on a white page (H78v):
@@ -699,6 +704,7 @@ function Step({
           background,
           ['--face' as string]: background,
           ['--ink-opacity' as string]: inkOpacity,
+          ['--edge-title' as string]: titleColour,
         }}
       >
         {onTop || touchesTop ? (
