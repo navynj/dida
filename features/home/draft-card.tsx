@@ -6,7 +6,6 @@ import { EmojiInput } from '@/features/lanes/emoji-input';
 import { fallbackLane } from '@/features/pool/audience';
 import { shareLane, shareOff, shareOn } from '@/features/pool/share-draft';
 import { ComposeTop } from '@/features/splash-sheet/compose-top';
-import { ShareToRow } from '@/features/splash-sheet/share-to-row';
 import type { DropHandoff, SheetContext } from '@/features/splash-sheet/splash-composer';
 import { useComposer, type ComposerSnapshot } from '@/features/splash-sheet/use-composer';
 import type { IsoDate } from '@/lib/time';
@@ -15,6 +14,7 @@ import { DETAIL_TITLE_CLASS } from '@/features/splash/splash-header';
 
 import { DraftImages } from './draft-images';
 import { DraftCategory, DraftDate } from './draft-pickers';
+import { DraftShare } from './draft-share';
 import type { StackDraft } from './stack-draft';
 
 /**
@@ -39,8 +39,9 @@ function isComposing(event: React.KeyboardEvent): boolean {
  * title, at the title's size, with `…` at the end of that row; the date
  * line in the card's own style and the category as the card's one chip;
  * the body, filling the card and scrolling inside it; and pinned to the
- * bottom, above the keyboard, the image row and the one-line Share to (its
- * *Only you* at the end), then Cancel and a Save that takes the rest of the row.
+ * bottom, above the keyboard, the image row and Share to's one summary row
+ * (it opens the diaries' picker), then Cancel and a Save that takes the rest
+ * of the row.
  *
  * The date is where the page is seated: once it rests (`RESEAT_MS`), the
  * stack moves the draft to its date's slot. Esc or Cancel discards it;
@@ -215,7 +216,7 @@ export function DraftCard({
         <DraftImages paths={c.mediaPaths} media={c.media} />
         {/* Where it is shared, said while it is written (H75): only from Home. */}
         {pool ? null : (
-          <ShareToRow
+          <DraftShare
             pools={pools}
             shared={c.audience}
             startLane={(poolId) =>
@@ -231,8 +232,6 @@ export function DraftCard({
             }
             // Picked by hand: manual for this draft only, never remembered (H75).
             onPick={(poolId, poolLaneId) => c.setShare((was) => shareLane(was, poolId, poolLaneId))}
-            // One row: *Only you* at its end while nothing is shared.
-            inline
           />
         )}
         <div className="flex items-center gap-3 pt-1">

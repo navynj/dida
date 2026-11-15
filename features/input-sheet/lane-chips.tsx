@@ -57,20 +57,12 @@ export function LaneChips({
       }
     >
       {searchable ? (
-        <label
-          className={`text-pool-500 flex items-center gap-2 text-base ${
-            search === 'always' ? 'bg-pool-100 rounded-full px-3 py-1.5' : ''
-          }`}
-        >
-          <Search aria-hidden size={14} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search categories"
-            aria-label="Search"
-            className="placeholder:text-pool-500 text-ink min-w-0 flex-1 bg-transparent outline-none placeholder:opacity-60"
-          />
-        </label>
+        <PickerSearch
+          value={query}
+          onChange={setQuery}
+          placeholder="Search categories"
+          pill={search === 'always'}
+        />
       ) : null}
 
       {/* No scroll indicator: a bar under a row of chips reads as a gauge,
@@ -95,5 +87,38 @@ export function LaneChips({
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * A picker's search field (H80): it filters as you type. `pill`, the draft
+ * card's pickers, gives it the grey fill of the chips under it.
+ */
+export function PickerSearch({
+  value,
+  onChange,
+  placeholder,
+  pill = false,
+}: {
+  value: string;
+  onChange: (query: string) => void;
+  placeholder: string;
+  pill?: boolean;
+}) {
+  return (
+    <label
+      className={`text-pool-500 flex items-center gap-2 text-base ${
+        pill ? 'bg-pool-100 rounded-full px-3 py-1.5' : ''
+      }`}
+    >
+      <Search aria-hidden size={14} />
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        aria-label="Search"
+        className="placeholder:text-pool-500 text-ink min-w-0 flex-1 bg-transparent outline-none placeholder:opacity-60"
+      />
+    </label>
   );
 }

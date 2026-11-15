@@ -24,15 +24,18 @@ import { cardDate } from './grid';
  * chips inside their surface-1 fill back, which the filled card (H82) maps
  * to white.
  */
-function Popover({
+export function Popover({
   label,
   onClose,
   align,
+  side = 'below',
   children,
 }: {
   label: string;
   onClose: () => void;
   align: 'left' | 'right';
+  /** Under its control, or over it: the footer's controls open upward, into the card. */
+  side?: 'below' | 'above';
   children: ReactNode;
 }) {
   return (
@@ -47,9 +50,9 @@ function Popover({
       <div
         role="dialog"
         aria-label={label}
-        className={`picker-surface absolute top-full z-40 mt-2 w-72 max-w-[calc(100vw-4rem)] rounded-xl bg-white p-3 shadow-lg ${
-          align === 'left' ? 'left-0' : 'right-0'
-        }`}
+        className={`picker-surface absolute z-40 w-72 max-w-[calc(100vw-4rem)] rounded-xl bg-white p-3 shadow-lg ${
+          side === 'below' ? 'top-full mt-2' : 'bottom-full mb-2'
+        } ${align === 'left' ? 'left-0' : 'right-0'}`}
       >
         {children}
       </div>
