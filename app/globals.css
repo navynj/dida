@@ -807,7 +807,8 @@ body {
  * through sharply — under white at 20% opacity. Clipped by the card's own
  * rounded box. Where backdrop-filter is missing, the face is the solid that
  * glass reads as: 20% white into the theme colour on the dark ground (#3739D4
- * for blue), white on the light and pastel grounds (stair-board's upSolid).
+ * for blue), smoked with ink where a white label would not read (H82), white
+ * on the light and pastel grounds (stair-board's upSolid, set as --up-solid).
  */
 .frosted {
   -webkit-backdrop-filter: blur(12px);
@@ -816,7 +817,7 @@ body {
 
 @supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
   .frosted {
-    background: color-mix(in srgb, #ffffff 20%, var(--theme-900)) !important;
+    background: var(--up-solid, color-mix(in srgb, #ffffff 20%, var(--theme-900))) !important;
   }
   [data-mode='light'] .frosted,
   [data-mode='pastel'] .frosted {

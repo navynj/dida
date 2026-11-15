@@ -33,6 +33,14 @@ export const TINT_STEP = 0.08;
 /** What does not fit the top card fades out over this much, into the face (review). */
 export const CARD_FADE_PX = 32;
 
+/**
+ * The read card's words (H82): an opaque colour the stack computes from its
+ * glass (`--up-title`), measured to 4.5:1, rather than white at 60%; the
+ * icon keeps the fade. Without the stack's colour, the fade as before.
+ */
+const UP_WORDS = { color: 'var(--up-title, currentColor)' } as const;
+const INK_FADE = { opacity: 'var(--ink-opacity, 0.6)' } as const;
+
 const NO_RESPONSES: RippleResponsesValue = { reactions: [], replies: [] };
 const NO_PHOTOS: CardPhoto[] = [];
 
@@ -112,16 +120,23 @@ export function CardFace({
           width: SPINE_PX,
           paddingTop: EDGE_PAD_PX.bottom,
           paddingBottom: EDGE_PAD_PX.bottom,
-          opacity: ink === 'white' ? 'var(--ink-opacity, 0.6)' : undefined,
         }}
       >
-        {glyph ? <span className="text-base/none">{glyph}</span> : null}
+        {glyph ? (
+          <span className="text-base/none" style={ink === 'white' ? INK_FADE : undefined}>
+            {glyph}
+          </span>
+        ) : null}
         <span
           data-card-title
           className={`mt-2 min-h-0 flex-1 overflow-hidden text-sm/none font-semibold text-ellipsis whitespace-nowrap ${
             card.splash.title.trim() ? '' : 'opacity-40'
           }`}
-          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+          style={{
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+            ...(ink === 'white' ? UP_WORDS : {}),
+          }}
         >
           {title}
         </span>
@@ -134,9 +149,13 @@ export function CardFace({
       className={`flex min-w-0 shrink-0 items-center gap-1.5 ${
         ink === 'white' ? 'text-white' : 'text-main-900'
       } ${edge === 'full' ? `${DETAIL_TITLE_CLASS} pr-8 leading-tight` : 'text-sm/none font-semibold'}`}
-      style={ink === 'white' ? { opacity: 'var(--ink-opacity, 0.6)' } : undefined}
+      style={ink === 'white' ? UP_WORDS : undefined}
     >
-      {glyph ? <span aria-hidden>{glyph}</span> : null}
+      {glyph ? (
+        <span aria-hidden style={ink === 'white' ? INK_FADE : undefined}>
+          {glyph}
+        </span>
+      ) : null}
       <span className={`truncate ${card.splash.title.trim() ? '' : 'opacity-40'}`}>{title}</span>
     </span>
   );

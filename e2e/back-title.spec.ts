@@ -10,8 +10,11 @@ config({ path: '.env.local', quiet: true });
  * A back card's title on the stack's steps (H82), in a real browser: on
  * each of the three steps below the top card, the title's computed colour
  * against its card's computed fill is 4.5:1 or better, on the light, pastel
- * and dark grounds. A throwaway person with five posts, against the local
- * stack; both are removed after. One person, so the themes run in turn.
+ * and dark grounds. The read card above the top: its label's computed
+ * colour against its glass — white and any smoke (H82) composited over the
+ * ground — is 4.5:1 or better too. A throwaway person with five posts,
+ * against the local stack; both are removed after. One person, so the
+ * themes run in turn.
  */
 const admin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -140,5 +143,62 @@ for (const [color, mode] of [
         4.5,
       );
     }
+  });
+}
+
+/** Each `rgba(…)` layer of a computed background, top first, composited over `under`. */
+function composite(layers: string[], under: string): string {
+  const base = under
+    .match(/\d+(\.\d+)?/g)!
+    .slice(0, 3)
+    .map(Number);
+  const out = layers.reverse().reduce((at, layer) => {
+    const [r, g, b, a = 1] = layer.match(/\d+(\.\d+)?/g)!.map(Number);
+    return at.map((c, k) => c + ([r, g, b][k] - c) * a);
+  }, base);
+  return `rgb(${out.map(Math.round).join(', ')})`;
+}
+
+for (const [color, mode] of [
+  ['yellow', 'dark'],
+  ['red', 'dark'],
+  ['purple', 'dark'],
+  ['blue', 'dark'],
+  ['yellow', 'light'],
+  ['pink', 'pastel'],
+] as const) {
+  test(`the read card’s label reads at 4.5:1 on its glass: ${color} ${mode}`, async ({
+    page,
+    baseURL,
+  }) => {
+    test.setTimeout(120_000);
+    await admin.from('my_theme_settings').upsert({ user_id: user, home_color: color, mode });
+    await signIn(page, baseURL!);
+    await page.goto('/');
+    await expect(page.locator('[data-stack]')).toBeVisible({ timeout: 60_000 });
+    await page.waitForTimeout(1_500);
+    // One flip forward: the first post is read, above the top card.
+    await page.locator('[data-step-card]').first().click();
+    const read = page.locator('[data-stack-card][data-stair="up"]');
+    await expect(read).toHaveCount(1);
+    await expect(page.locator('[data-moving]')).toHaveCount(0);
+    await page.waitForTimeout(400);
+    const got = await read.evaluate((el) => {
+      const face = getComputedStyle(el.firstElementChild!);
+      return {
+        title: getComputedStyle(el.querySelector('[data-card-edge] [data-card-title]')!).color,
+        opacity: getComputedStyle(el.querySelector('[data-card-edge] [data-card-title]')!).opacity,
+        layers: [
+          ...(face.backgroundImage.match(/rgba?\([^)]*\)/g)?.slice(0, 1) ?? []),
+          face.backgroundColor,
+        ],
+        ground: getComputedStyle(document.querySelector('.water-ground')!).backgroundColor,
+      };
+    });
+    const fill = composite(got.layers, got.ground);
+    // The words as seen: their colour at their own opacity over the fill.
+    const [r, g, b] = got.title.match(/\d+(\.\d+)?/g)!.map(Number);
+    const seen = composite([`rgba(${r}, ${g}, ${b}, ${got.opacity})`], fill);
+    expect(contrast(seen, fill), `${seen} on ${fill}`).toBeGreaterThanOrEqual(4.5);
   });
 }

@@ -20,7 +20,17 @@ import { useTheme } from '@/features/people/theme-provider';
 import { SHEET_TOP_GAP_PX, useVisualViewport } from '@/features/splash-sheet/sheet-frame';
 
 import { CARD_PX, CardFace, face, SPINE_PX, TINT_STEP } from './card-face';
-import { backTitleBase, edgeTitle } from './back-title';
+import {
+  backTitleBase,
+  edgeTitle,
+  glassFill,
+  glassSmoke,
+  INK,
+  UP_GLASS,
+  upLabelBase,
+  upTitle,
+  upWords,
+} from './back-title';
 import { CardMenu } from './card-menu';
 import { laneOfCard, type Card, type CardLane } from './grid';
 import { FLIP_SPRING, type Flip } from './use-flip';
@@ -59,7 +69,9 @@ const MIN_CARD_WIDTH_PX = 320;
  * is another 8% of the water's colour (the theme, 0032) mixed into white. Above it the one read
  * card is **frosted glass** (`.frosted`): white at 20% over a blurred
  * backdrop, or, when blur is unavailable and while it moves, the solid that
- * glass reads as (`upSolid`); its words white at 60%.
+ * glass reads as (`upSolid`); on the dark ground the glass is smoked with
+ * ink where its white label would not read (H82), and the label is an opaque
+ * colour measured to 4.5:1 on it (`upTitle`), its icon at 60%.
  */
 const DOWN_TINTS = [0, TINT_STEP, TINT_STEP * 2, TINT_STEP * 3] as const;
 /**
@@ -71,18 +83,26 @@ const DOWN_TINTS = [0, TINT_STEP, TINT_STEP * 2, TINT_STEP * 3] as const;
  * against the water.
  */
 export const LIGHT_TINTS = [0.03, 0.12, 0.2, 0.28] as const;
-const UP_ALPHA = 0.2;
+const UP_ALPHA = UP_GLASS;
 
 /**
- * The frosted card as a solid (review): white at 20% over the ground. On
- * the dark ground that is 20% white into the theme colour (#3739D4 for
- * blue); light and pastel grounds are white, so it is white. A blue solid
- * there was the flicker on light and pastel: the card turned dark while it
- * moved to or from the top, then white as the glass took over.
+ * The frosted card as a solid (review): what the glass reads as over the
+ * ground. On the dark ground that is 20% white into the theme colour
+ * (#3739D4 for blue), smoked with ink where a white label would not read on
+ * it (H82, `glassSmoke`); light and pastel grounds are white, so it is
+ * white. A blue solid there was the flicker on light and pastel: the card
+ * turned dark while it moved to or from the top, then white as the glass
+ * took over. The same reason keeps it equal to the smoked glass.
  */
 export function upSolid(hex: string, mode: string): string {
-  return mode === 'dark' ? face(1 - UP_ALPHA, hex) : '#FFFFFF';
+  if (mode !== 'dark') return '#FFFFFF';
+  const [r, g, b] = [1, 3, 5].map((k) => parseInt(glassFill(hex, 'dark').slice(k, k + 2), 16));
+  return `rgb(${r}, ${g}, ${b})`;
 }
+
+/** The read card's glass over the ground: what is behind it, and the ink it is smoked with (H82). */
+export type Glass = { ground: string; smoke: number };
+const WHITE_GLASS: Glass = { ground: '#FFFFFF', smoke: 0 };
 const UP_INK = 0.6;
 
 /** The draft held in front of the cards stepping past it (H80). */
@@ -149,12 +169,16 @@ export function seat(
   solid = upSolid(base, 'dark'),
   /** The steps below the top card: DOWN_TINTS, or LIGHT_TINTS on the light ground. */
   tints: readonly number[] = DOWN_TINTS,
+  /** The read card's glass: the ground behind it and its smoke (H82). */
+  glass: Glass = WHITE_GLASS,
 ): {
   x: number;
   y: number;
   scale: number;
   opacity: number;
   background: string;
+  /** What the face reads as, opaque: the fill its words are measured on. */
+  fill: string;
   ink: number;
 } {
   const steps = Math.abs(d);
@@ -176,18 +200,31 @@ export function seat(
     const at = Math.min(steps, tints.length - 1);
     const low = Math.floor(at);
     const tint = lerp(tints[low], tints[Math.min(low + 1, tints.length - 1)], at - low);
-    return { x, y, scale, opacity, background: face(tint, base), ink: 1 };
+    const fill = face(tint, base);
+    return { x, y, scale, opacity, background: fill, fill, ink: 1 };
   }
   const rise = Math.min(1, steps);
   const ink = lerp(1, UP_INK, rise);
   if (frostGlass) {
     const alpha = lerp(1, UP_ALPHA, rise);
+    const smoke = glass.smoke * rise;
+    // White over the blurred ground, then the ink it is smoked with on top.
+    const white = `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
+    const [ir, ig, ib] = [1, 3, 5].map((k) => parseInt(INK.slice(k, k + 2), 16));
+    const ground = [1, 3, 5].map((k) => parseInt(glass.ground.slice(k, k + 2), 16));
+    const fill = ground.map((c, k) =>
+      Math.round(lerp(lerp(c, 255, alpha), [ir, ig, ib][k], smoke)),
+    );
     return {
       x,
       y,
       scale,
       opacity,
-      background: `rgba(255, 255, 255, ${alpha.toFixed(3)})`,
+      background:
+        smoke > 0
+          ? `linear-gradient(rgba(${ir}, ${ig}, ${ib}, ${smoke.toFixed(3)}), rgba(${ir}, ${ig}, ${ib}, ${smoke.toFixed(3)})), ${white}`
+          : white,
+      fill: `rgb(${fill[0]}, ${fill[1]}, ${fill[2]})`,
       ink,
     };
   }
@@ -200,14 +237,8 @@ export function seat(
     Math.round(255 - (255 - parseInt(base.slice(k, k + 2), 16)) * tints[0]),
   );
   const channel = (c: number, at: number): number => Math.round(lerp(from[at], c, rise));
-  return {
-    x,
-    y,
-    scale,
-    opacity,
-    background: `rgb(${channel(target[0], 0)}, ${channel(target[1], 1)}, ${channel(target[2], 2)})`,
-    ink,
-  };
+  const solidFill = `rgb(${channel(target[0], 0)}, ${channel(target[1], 1)}, ${channel(target[2], 2)})`;
+  return { x, y, scale, opacity, background: solidFill, fill: solidFill, ink };
 }
 
 /**
@@ -611,17 +642,21 @@ function Step({
   // Pastel steps from the theme colour too (H78v): its own pale fill at these
   // steps parted nothing once the back cards lost their line.
   const base = theme.mode === 'pastel' ? themeHex(theme.color) : hex;
+  // The read card's glass (H82): over the water on the dark ground, smoked
+  // with ink so its white label reads; white over the light grounds.
+  const glass: Glass =
+    theme.mode === 'dark' ? { ground: hex, smoke: glassSmoke(hex) } : WHITE_GLASS;
 
   // The card's distance from the top as the stack's depth moves, and, while
   // a draft is seated again, from where it was to where it is going.
   const d = useTransform([p, q], ([pv, qv]) =>
     depthAt(from, to, pv as number, qv as number, reducedMotion, reseatFrom),
   );
-  const y = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).y);
-  const x = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).x);
-  const scale = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).scale);
+  const y = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints, glass).y);
+  const x = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints, glass).x);
+  const scale = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints, glass).scale);
   const opacity = useTransform([d, p], ([v, pv]) => {
-    const at = seat(v as number, stair, frostFill, base, solid, tints).opacity;
+    const at = seat(v as number, stair, frostFill, base, solid, tints, glass).opacity;
     if (!reducedMotion || !moving) return at;
     // Reduced motion: the old top fades out as the new one fades in.
     if (from === 0) return at * (1 - clamp01(pv as number));
@@ -630,20 +665,34 @@ function Step({
   });
   const background = useTransform(
     d,
-    (v) => seat(v, stair, frostFill, base, solid, tints).background,
+    (v) => seat(v, stair, frostFill, base, solid, tints, glass).background,
   );
   // A card moving to or from the top carries both faces and crossfades them
   // on its distance from the top, so nothing switches when it lands.
   // A back card's title on its step's fill, darkened toward ink only as far
   // as that fill needs for 4.5:1 (H82); continuous, so a flip never jumps it.
   const titleBase = backTitleBase(theme.color, theme.mode);
-  const titleColour = useTransform(background, (bg) => edgeTitle(titleBase, bg));
+  const titleColour = useTransform(d, (v) =>
+    edgeTitle(titleBase, seat(v, stair, frostFill, base, solid, tints, glass).fill),
+  );
+  // The read card's label on its glass, opaque (H82): as drawn where it reads
+  // at 4.5:1, else toward the ground's words — white on the dark ground, ink
+  // on the light ones and where the glass would need too much smoke.
+  const labelBase = upLabelBase(theme.color, theme.mode);
+  const labelTarget = upWords(hex, theme.mode);
+  const upTitleColour = useTransform(d, (v) => {
+    const at = seat(v, stair, frostFill, base, solid, tints, glass);
+    return upTitle(labelBase, at.fill, at.ink, labelTarget);
+  });
   const fullOpacity = useTransform(d, (v) => 1 - clamp01(Math.abs(v)));
   const edgeOpacity = useTransform(d, (v) => clamp01(Math.abs(v)));
   // The front card alone keeps its hairline, white on a white page (H78v):
   // full on top, gone a step away, so a flip fades it rather than pops it.
   const frontEdge = useTransform(d, (v) => 1 - clamp01(Math.abs(v)));
-  const inkOpacity = useTransform(d, (v) => seat(v, stair, frostFill, base, solid, tints).ink);
+  const inkOpacity = useTransform(
+    d,
+    (v) => seat(v, stair, frostFill, base, solid, tints, glass).ink,
+  );
   // Nearer the top, nearer the eye (depthZ); the draft stays in front of
   // the cards stepping past it (H80).
   const isDraft = draftFace !== null;
@@ -705,6 +754,8 @@ function Step({
           ['--face' as string]: background,
           ['--ink-opacity' as string]: inkOpacity,
           ['--edge-title' as string]: titleColour,
+          ['--up-title' as string]: upTitleColour,
+          ['--up-solid' as string]: solid,
         }}
       >
         {onTop || touchesTop ? (
