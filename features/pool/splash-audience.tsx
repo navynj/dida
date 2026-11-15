@@ -57,6 +57,8 @@ export function SplashAudience({
         shared={audience.value}
         pools={pools}
         invite={invite}
+        // A record's own chip says where it is, an outline (H80).
+        outline
         locked={moved ? null : locked}
         moveHome={
           moveHome && !moved

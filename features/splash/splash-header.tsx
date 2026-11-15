@@ -146,7 +146,7 @@ export function SplashHeader({
               <OutlineChip key={lane.id} icon={lane.icon} name={lane.name} />
             ))}
             {tags.length === 0 ? (
-              <span className="text-pool-500 text-[10px]">+ category</span>
+              <span className="text-pool-500 text-[10px]">+ Category</span>
             ) : null}
           </button>
         )}

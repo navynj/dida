@@ -224,4 +224,24 @@ describe('my record shared nowhere, on its header (H75)', () => {
     expect(view.container.querySelector('[data-audience-private]')).toBeNull();
     expect(view.container.querySelector('[data-audience-chip]')!.textContent).toBe('Beta · Walks');
   });
+
+  it('is an outline chip on the record, not the ink fill, and still opens Audience (H80)', () => {
+    const view = header([{ poolId: 'p-beta', poolLaneId: 'b1' }]);
+    const chip = view.container.querySelector('[data-audience-chip]')!;
+    expect(chip.hasAttribute('data-outline')).toBe(true);
+    expect(chip.className).toContain('border-pool-200');
+    expect(chip.className).toContain('text-pool-500');
+    expect(chip.className).not.toContain('bg-ink');
+    expect(chip.className).not.toContain('text-white');
+    fireEvent.click(chip);
+    expect(toggle('p-beta').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('says N diaries on the outline chip when shared to several (H78)', () => {
+    const view = header([
+      { poolId: 'p-alpha', poolLaneId: 'a1' },
+      { poolId: 'p-beta', poolLaneId: 'b1' },
+    ]);
+    expect(view.container.querySelector('[data-audience-chip]')!.textContent).toBe('2 diaries');
+  });
 });

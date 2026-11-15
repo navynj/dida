@@ -637,8 +637,10 @@ export function SplashPage({
             />
           }
           place={
-            // With tabs, the tabs and the Audience chip say where it is (H75).
-            poolTags.length > 0 && threads.length === 0 ? (
+            // With tabs, the tabs and the Audience chip say where it is (H75);
+            // with the chip, the chip alone (H80): the line would say it twice.
+            // On a record that is not mine there is no chip, and the line stays.
+            poolTags.length > 0 && threads.length === 0 && !audience ? (
               <p data-origin-tags className="text-pool-500 flex flex-wrap gap-x-3 text-xs">
                 {poolTags.map((tag) => (
                   <span key={tag} data-origin-tag>

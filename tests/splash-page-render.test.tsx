@@ -245,6 +245,38 @@ describe('the white page above the water (SPEC 5, H21c)', () => {
     expect(container.querySelectorAll('[data-origin-tags]')).toHaveLength(1);
   });
 
+  it('offers + Category, capitalised as the draft card has it, on a post with no lane (H80)', () => {
+    const { container } = page({
+      splash: summarizeSplash({ ...board, declared_lane_id: null }, blocks, TZ, NOW),
+    });
+    expect(container.querySelector('[data-lane-tags]')!.textContent).toBe('+ Category');
+  });
+
+  it('drops the place line under the author when the Audience chip already says it (H80)', () => {
+    const { container } = render(
+      <PeopleProvider me="u-me" people={{ 'u-me': { name: 'Yoonji', photo: null } }}>
+        <InputSheetProvider>
+          <SplashPage
+            splash={summarizeSplash(board, blocks, TZ, NOW)}
+            blocks={blocks}
+            photos={{}}
+            lockedIds={[]}
+            categories={LANES}
+            timeZone={TZ}
+            today={TODAY}
+            initials="YL"
+            poolTags={['Our Pool · 🎲 Games']}
+            audience={<button data-audience-chip>Our Pool · 🎲 Games</button>}
+          />
+        </InputSheetProvider>
+      </PeopleProvider>,
+    );
+    const header = container.querySelector('[data-splash-header]')!;
+    expect(header.querySelectorAll('[data-audience-chip]')).toHaveLength(1);
+    expect(container.querySelector('[data-origin-tags]')).toBeNull();
+    expect(header.querySelector('[data-splash-author]')).not.toBeNull();
+  });
+
   it('reads the blocks by their day inside the range under small day labels, photos full width', () => {
     const { container } = page();
     const ids = [...container.querySelectorAll('[data-block]')].map((b) =>

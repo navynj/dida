@@ -36,6 +36,7 @@ export function AudienceChip({
   locked = null,
   moveHome = null,
   invite = false,
+  outline = false,
 }: {
   /** Where the record is shared now: a pool lane per pool. */
   shared: AudiencePick[];
@@ -53,6 +54,12 @@ export function AudienceChip({
   moveHome?: MoveHome | null;
   /** A record's header (H75): shared nowhere, it reads *Only me* with a *Share* to open the sheet. */
   invite?: boolean;
+  /**
+   * A record's header (H80): where it is shared is membership, not a choice
+   * being made, so it is an outline chip as a record's tags are — never the
+   * ink fill, which says selection while it is written.
+   */
+  outline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const on = shared.filter((pick) => pools.some((p) => p.id === pick.poolId));
@@ -98,9 +105,15 @@ export function AudienceChip({
         data-audience-chip
         aria-label={`Audience: ${chipLabel(on, pools)}`}
         onClick={() => setOpen(true)}
-        // As Share to's chip (H78m): ink when shared, surface-1 when not.
+        // In the composer, as Share to's chip (H78m): ink when shared,
+        // surface-1 when not. On a record, an outline (H80).
+        data-outline={outline && on.length > 0 ? '' : undefined}
         className={`inline-flex max-w-[12rem] shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
-          on.length > 0 ? 'bg-ink text-white' : 'bg-pool-100 hover:text-ink text-(--text-inactive)'
+          on.length === 0
+            ? 'bg-pool-100 hover:text-ink text-(--text-inactive)'
+            : outline
+              ? 'border-pool-200 text-pool-500 hover:text-ink border bg-transparent py-[3px]'
+              : 'bg-ink text-white'
         }`}
       >
         <Users aria-hidden size={12} className="shrink-0 opacity-70" />
