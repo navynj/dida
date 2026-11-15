@@ -9,12 +9,13 @@ import { asUser } from '../tests/as-user';
 config({ path: '.env.local', quiet: true });
 
 /**
- * The draft card (H80), in a real browser: compose opens a page on the
- * stack, not a sheet; a date set to an older day moves it to its slot
- * among the posts; Save leaves it where it is, out of edit mode, its piece
- * playing the drop — and asks the server once, the action alone. A
- * throwaway person with three posts, against the local stack; both are
- * removed after.
+ * The draft card (H80), in a real browser. On a wide screen compose opens a
+ * page on the stack, not a sheet; a date set to an older day moves it to
+ * its slot among the posts. On a phone it opens the page sheet with the
+ * same fields, and nothing is seated until Save. Either way Save seats the
+ * post by its date on top, out of edit mode, its piece playing the drop —
+ * and asks the server once, the action alone. A throwaway person with three
+ * posts, against the local stack; both are removed after.
  */
 const admin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -94,11 +95,12 @@ async function signIn(page: Page, baseURL: string): Promise<void> {
   await page.context().addCookies([{ name: `sb-${ref}-auth-token`, value: cookie, url: baseURL }]);
 }
 
-test('compose writes on the stack: the draft moves to its date, Save keeps it there, one write', async ({
+test('compose writes on the stack (wide) or the page sheet (phone); Save seats it by its date, one write', async ({
   page,
   baseURL,
-}) => {
+}, info) => {
   test.setTimeout(120_000);
+  const phone = info.project.name === 'phone';
   await signIn(page, baseURL!);
   // Which date inputs had their picker opened: a native picker draws
   // outside the page, so the call is what can be seen.
@@ -118,11 +120,21 @@ test('compose writes on the stack: the draft moves to its date, Save keeps it th
   await page.locator('[data-compose]:visible').first().click();
   const draft = page.locator('[data-draft-card]');
   await expect(draft).toBeVisible();
-  // A page on the stack, not a sheet.
-  await expect(page.locator('[data-splash-sheet]')).toHaveCount(0);
   const id = (await draft.getAttribute('data-draft-card'))!;
   const top = page.locator('[data-stack-card][data-slot="0"]');
-  await expect(top).toHaveAttribute('data-stack-card', id);
+  if (phone) {
+    // The page sheet, its grabber; the stack is left as it was.
+    await expect(
+      page.locator('[data-splash-modal] [data-compose-sheet] [data-draft-card]'),
+    ).toBeVisible();
+    await expect(page.locator('[data-sheet-handle]')).toBeVisible();
+    await expect(page.locator('[data-stack] [data-draft-card]')).toHaveCount(0);
+    await expect(top).toHaveAttribute('data-stack-card', posts.near);
+  } else {
+    // A page on the stack, not a sheet.
+    await expect(page.locator('[data-splash-sheet]')).toHaveCount(0);
+    await expect(top).toHaveAttribute('data-stack-card', id);
+  }
 
   // `…` ends the icon-and-title row, as on the finished card; no row of its own.
   await expect(draft.locator('[data-draft-title-row] [data-compose-more]')).toBeVisible();
@@ -152,15 +164,16 @@ test('compose writes on the stack: the draft moves to its date, Save keeps it th
   );
   await expect(page.locator('[role="dialog"][aria-label="Date"]')).toHaveCount(0);
   await draft.locator('input[aria-label="Date"]').fill(daysAgo(7));
-  await expect(page.locator('[data-stack-card][data-stair="up"]')).toHaveAttribute(
-    'data-stack-card',
-    posts.middle,
-  );
-  await expect(top).toHaveAttribute('data-stack-card', id);
-  await expect(page.locator('[data-stack-card][data-stair="down"][data-step="1"]')).toHaveAttribute(
-    'data-stack-card',
-    posts.far,
-  );
+  if (!phone) {
+    await expect(page.locator('[data-stack-card][data-stair="up"]')).toHaveAttribute(
+      'data-stack-card',
+      posts.middle,
+    );
+    await expect(top).toHaveAttribute('data-stack-card', id);
+    await expect(
+      page.locator('[data-stack-card][data-stair="down"][data-step="1"]'),
+    ).toHaveAttribute('data-stack-card', posts.far);
+  }
 
   // Every request from here: the action, and any render that is not a prefetch.
   const asked: string[] = [];
@@ -173,12 +186,18 @@ test('compose writes on the stack: the draft moves to its date, Save keeps it th
     (response) => !!response.request().headers()['next-action'],
   );
   await draft.locator('[data-draft-save]').click();
-  // Out of edit mode at once, in the same seat.
+  // Out of edit mode at once — the sheet gone on a phone — seated by its
+  // date and on top: middle read above it, far the next below.
   await expect(page.locator('[data-draft-card]')).toHaveCount(0);
+  await expect(page.locator('[data-compose-sheet]')).toHaveCount(0);
   await expect(top).toHaveAttribute('data-stack-card', id);
   await expect(page.locator('[data-stack-card][data-stair="up"]')).toHaveAttribute(
     'data-stack-card',
     posts.middle,
+  );
+  await expect(page.locator('[data-stack-card][data-stair="down"][data-step="1"]')).toHaveAttribute(
+    'data-stack-card',
+    posts.far,
   );
   // Its piece on the Calendar plays the drop once.
   await expect(
