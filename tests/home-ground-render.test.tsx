@@ -1386,9 +1386,20 @@ describe('the draft card (H80)', () => {
       const id = await compose(container);
       expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
       const draft = draftOf(container)!;
-      // The top row is `…` alone: no Cancel or Save up there.
-      const top = draft.querySelector('[data-draft-top]')!;
-      expect(top.querySelector('[data-draft-cancel], [data-draft-save]')).toBeNull();
+      // No row of its own for `…`: it ends the icon-and-title row, as on the card.
+      expect(draft.querySelector('[data-draft-top]')).toBeNull();
+      const titleRow = draft.querySelector('[data-draft-title-row]')!;
+      expect(titleRow.querySelector('[data-emoji-input]')).not.toBeNull();
+      expect(titleRow.querySelector('[aria-label="Title"]')).not.toBeNull();
+      expect(titleRow.lastElementChild!.querySelector('[data-compose-more]')).not.toBeNull();
+      expect(titleRow.querySelector('[data-draft-cancel], [data-draft-save]')).toBeNull();
+      // Then the date line at the left and the category chip at the right.
+      const header = draft.querySelector('[data-draft-header]')!;
+      expect(
+        titleRow.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(header.firstElementChild!.querySelector('[data-draft-date]')).not.toBeNull();
+      expect(header.lastElementChild!.querySelector('[data-draft-category]')).not.toBeNull();
       // Cancel and Save at the bottom, Cancel first; one Save.
       const footer = draft.querySelector('[data-draft-footer]')!;
       const cancel = footer.querySelector('[data-draft-cancel]')!;
@@ -1401,6 +1412,8 @@ describe('the draft card (H80)', () => {
       expect(save.disabled).toBe(true);
       expect(save.className).toContain('bg-main-900');
       expect(save.className).toContain('disabled:opacity-30');
+      // Save takes the rest of the row.
+      expect(save.className).toContain('flex-1');
       // The header as the finished card writes it.
       expect(draft.querySelector('[data-draft-date]')!.textContent).toBe('Sep 25 (FRI)');
       expect(draft.querySelector('[data-draft-category]')!.textContent).toBe('+ Category');
@@ -1418,7 +1431,10 @@ describe('the draft card (H80)', () => {
       expect(images.querySelector('[data-draft-add-image] svg')).not.toBeNull();
       expect(footer.textContent).not.toContain('+ Add Image');
       const privately = footer.querySelector('[data-share-private]')!;
-      expect(privately.textContent).toBe('Only you can see this');
+      // One row: Share to's status at its end, no line of its own (H75).
+      expect(privately.textContent).toBe('Only you');
+      expect(privately.closest('[data-share-to]')).not.toBeNull();
+      expect(footer.textContent).not.toContain('Only you can see this');
       expect(
         images.compareDocumentPosition(privately) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();

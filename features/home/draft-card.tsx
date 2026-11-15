@@ -35,11 +35,12 @@ function isComposing(event: React.KeyboardEvent): boolean {
 /**
  * The draft card (H80): a new page written where it will live, as the top
  * card of the stack, already in edit mode — and already looking like the
- * card it becomes (`CardFace`). Top to bottom: `…` at the top right; the
- * date line in the card's own style and the category as the card's one
- * chip; the icon inline before the title, at the title's size; the body,
- * filling the card and scrolling inside it; and pinned to the bottom, above
- * the keyboard, the image row, where it is shared, and Cancel … Save.
+ * card it becomes (`CardFace`). Top to bottom: the icon inline before the
+ * title, at the title's size, with `…` at the end of that row; the date
+ * line in the card's own style and the category as the card's one chip;
+ * the body, filling the card and scrolling inside it; and pinned to the
+ * bottom, above the keyboard, the image row and the one-line Share to (its
+ * *Only you* at the end), then Cancel and a Save that takes the rest of the row.
  *
  * The date is where the page is seated: once it rests (`RESEAT_MS`), the
  * stack moves the draft to its date's slot. Esc or Cancel discards it;
@@ -119,23 +120,10 @@ export function DraftCard({
       aria-label="New page"
       className="text-ink relative flex h-full flex-col"
     >
-      {/* The description, asked for from `…` (0037): the card's top right, as its menu sits. */}
-      <div data-draft-top className="flex shrink-0 justify-end px-3 pt-2">
-        <ComposeTop describing={c.describing} onDescribing={c.setDescribing} />
-      </div>
-      {draft.error ? (
-        <p role="alert" data-draft-error className="text-pool-500 shrink-0 px-5 pt-1 text-sm">
-          {draft.error}
-        </p>
-      ) : null}
-
-      {/* The header as the finished card has it: the date, the category's chip. */}
-      <div data-draft-header className="flex shrink-0 items-start justify-between gap-3 px-5 pt-1">
-        <DraftDate composer={c} today={context.today} />
-        <DraftCategory composer={c} pools={pools} />
-      </div>
-      {/* The icon inline before the title, at its size; empty, a faint glyph. */}
-      <div className="flex shrink-0 items-center gap-1.5 px-5 pt-1.5">
+      {/* The header as the finished card has it (CardFace): the icon and the
+          title, `…` at the end of the same row (the description, 0037); then
+          the date line and the category's chip. */}
+      <div data-draft-title-row className="flex shrink-0 items-center gap-1.5 pt-3 pr-3 pl-5">
         <EmojiInput
           value={c.icon}
           onChange={c.setIcon}
@@ -163,7 +151,22 @@ export function DraftCard({
           data-sheet-title
           className={`${DETAIL_TITLE_CLASS} text-main-900 placeholder:text-main-900 min-w-0 flex-1 resize-none overflow-hidden leading-tight outline-none placeholder:opacity-30`}
         />
+        <div className="shrink-0 self-start">
+          <ComposeTop describing={c.describing} onDescribing={c.setDescribing} />
+        </div>
       </div>
+      <div
+        data-draft-header
+        className="flex shrink-0 items-start justify-between gap-3 px-5 pt-1.5"
+      >
+        <DraftDate composer={c} today={context.today} />
+        <DraftCategory composer={c} pools={pools} />
+      </div>
+      {draft.error ? (
+        <p role="alert" data-draft-error className="text-pool-500 shrink-0 px-5 pt-1 text-sm">
+          {draft.error}
+        </p>
+      ) : null}
       {c.describing ? (
         <textarea
           value={c.description}
@@ -202,10 +205,11 @@ export function DraftCard({
       />
 
       {/* Pinned to the card's bottom, above the keyboard: the image row,
-          where it is shared, then Cancel … Save. */}
+          where it is shared, one group on one left edge; then Cancel and
+          Save, Save taking the rest of the row. */}
       <div
         data-draft-footer
-        className="flex shrink-0 flex-col gap-2.5 px-5 pt-2"
+        className="flex shrink-0 flex-col gap-3 px-5 pt-2"
         style={{ paddingBottom: BOTTOM_PAD }}
       >
         <DraftImages paths={c.mediaPaths} media={c.media} />
@@ -227,15 +231,11 @@ export function DraftCard({
             }
             // Picked by hand: manual for this draft only, never remembered (H75).
             onPick={(poolId, poolLaneId) => c.setShare((was) => shareLane(was, poolId, poolLaneId))}
+            // One row: *Only you* at its end while nothing is shared.
+            inline
           />
         )}
-        {/* With no diary to share to, the row draws nothing: said here instead. */}
-        {!pool && pools.length === 0 ? (
-          <p data-share-private className="text-pool-500 text-xs">
-            Only you can see this
-          </p>
-        ) : null}
-        <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center gap-3 pt-1">
           <button
             type="button"
             data-draft-cancel
@@ -250,7 +250,7 @@ export function DraftCard({
             data-draft-save
             disabled={!c.canCommit}
             onClick={save}
-            className="bg-main-900 rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-30"
+            className="bg-main-900 flex-1 rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-30"
           >
             Save
           </button>

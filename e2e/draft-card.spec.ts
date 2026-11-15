@@ -122,6 +122,12 @@ test('compose writes on the stack: the draft moves to its date, Save keeps it th
   const top = page.locator('[data-stack-card][data-slot="0"]');
   await expect(top).toHaveAttribute('data-stack-card', id);
 
+  // `…` ends the icon-and-title row, as on the finished card; no row of its own.
+  await expect(draft.locator('[data-draft-title-row] [data-compose-more]')).toBeVisible();
+  await expect(draft.locator('[data-draft-top]')).toHaveCount(0);
+  // Where it is shared, one row: no diary to share to, so the status alone.
+  await expect(draft.locator('[data-share-to] [data-share-private]')).toHaveText('Only you');
+  await expect(draft).not.toContainText('Only you can see this');
   await draft.locator('[aria-label="Content"]').fill('the tide was out');
   // The category picker: a search field always, filtering the chips as typed.
   await draft.locator('[data-draft-category]').click();
