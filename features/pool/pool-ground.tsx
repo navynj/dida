@@ -93,8 +93,15 @@ export function PoolGround({
   const [sheet, setSheet] = useState<Sheet>(null);
   const settings = useSettings();
   const [profile, setProfile] = useState(false);
-  const { pendingDrop, clearDropped, pendingDeletes, markDeleted, dropMessage, pendingEdits } =
-    useInputSheet();
+  const {
+    pendingDrop,
+    clearDropped,
+    pendingDeletes,
+    markDeleted,
+    dropMessage,
+    pendingEdits,
+    openSheet,
+  } = useInputSheet();
 
   // Opening a pool makes it the one the Pool tab opens, seen as of now.
   useEffect(() => rememberVisit(poolId), [poolId]);
@@ -276,7 +283,9 @@ export function PoolGround({
 
   // Re-tapping Pool while in a pool walks the views; the toggle follows (review).
   // Compose from here defaults to this pool, its lanes as I linked them (H23).
-  const composeHere = (): void => stackDraft.open(poolScopeOf(view));
+  // On a phone in the page sheet; on a wide screen on the stack (H80).
+  const composeHere = (): void =>
+    wide ? stackDraft.open(poolScopeOf(view)) : openSheet(poolScopeOf(view));
   // The Board view's month: that of the post on top, else this month.
   const [boardMonth, setBoardMonth] = useState(() => {
     const top = shown.find((c) => c.splash.id === initialTop);
@@ -435,7 +444,6 @@ export function PoolGround({
               onDelete={remove}
               low={boardView}
               collapsed={editing.activeId !== null}
-              expanded={writing}
               draft={
                 stackDraft.draft && compose
                   ? {

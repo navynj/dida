@@ -15,6 +15,9 @@ import { COLUMN_MAX_WIDTH } from '@/components/ui/column';
 export const SHEET_TOP_GAP_PX = 56;
 export const SHEET_MAX_HEIGHT =
   'max-h-[calc(var(--sheet-room,100dvh)-max(56px,env(safe-area-inset-top,0px)))]';
+/** The same room as a height: a sheet that takes it all from the start (the composer, H80). */
+export const SHEET_FULL_HEIGHT =
+  'h-[calc(var(--sheet-room,100dvh)-max(56px,env(safe-area-inset-top,0px)))]';
 
 /** The bottom inset a sheet's last row keeps above the home indicator. */
 const BOTTOM_PAD = 'calc(1.75rem + env(safe-area-inset-bottom, 0px))';
@@ -102,13 +105,11 @@ export function SheetFooter({ children }: { children: ReactNode }) {
 /** The visual viewport's height and its distance from the layout viewport's bottom (the keyboard). */
 export function useVisualViewport(
   within: React.RefObject<HTMLElement | null>,
-  /** Off, nothing is listened to (the stack, until it expands for a draft). */
-  enabled = true,
 ): { bottom: number; height: number } | null {
   const [viewport, setViewport] = useState<{ bottom: number; height: number } | null>(null);
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv || !enabled) return;
+    if (!vv) return;
     const keepFocusInView = (): void => {
       const active = document.activeElement as HTMLElement | null;
       if (active && within.current?.contains(active) && active.matches('input, textarea')) {
@@ -130,6 +131,6 @@ export function useVisualViewport(
       vv.removeEventListener('resize', update);
       vv.removeEventListener('scroll', update);
     };
-  }, [within, enabled]);
-  return enabled ? viewport : null;
+  }, [within]);
+  return viewport;
 }

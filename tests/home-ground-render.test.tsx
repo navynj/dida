@@ -69,6 +69,7 @@ import type { HomeView } from '@/features/home/view-toggle';
 /** The view a test's Home opens on: a visit opens on the Calendar (review); these choose. */
 let homeView: HomeView = 'lane';
 import { InputSheetProvider, useInputSheet } from '@/features/input-sheet/sheet-provider';
+import { SheetHost } from '@/features/input-sheet/sheet-host';
 import {
   summarizeSplash,
   type Splash,
@@ -702,7 +703,8 @@ describe('the diving board, a staircase', () => {
     await waitFor(() => expect(deleted).toEqual(['late']));
   });
 
-  it('opens a draft card on the stack from the compose disc outside it: white, a blue plus; no sheet, no nav (H80)', () => {
+  it('opens a draft card on the stack from the compose disc on a wide screen: white, a blue plus; no sheet, no nav (H80)', () => {
+    wideScreen();
     const { container } = ground();
     expect(container.querySelector('[data-drop-bar]')).toBeNull();
     expect(container.querySelector('[data-ground-nav]')).toBeNull();
@@ -713,6 +715,14 @@ describe('the diving board, a staircase', () => {
     fireEvent.click(compose);
     expect(container.querySelector('[data-sheet-open]')).toBeNull();
     expect(container.querySelector('[data-stack] [data-draft-card]')).not.toBeNull();
+  });
+
+  it('opens the composer sheet on a phone instead, and seats no draft on the stack (H80)', () => {
+    const { container } = ground();
+    fireEvent.click(container.querySelector('[data-board-column] [data-compose]')!);
+    expect(container.querySelector('[data-sheet-open]')).not.toBeNull();
+    expect(container.querySelector('[data-draft-card]')).toBeNull();
+    expect(container.querySelector('[data-stack] [data-writing]')).toBeNull();
   });
 
   it('keeps its height whatever is on top, so the grid never moves', async () => {
@@ -1351,8 +1361,10 @@ describe('the Lane view draws no band across its lanes (review)', () => {
 });
 
 describe('the draft card (H80)', () => {
+  // A wide screen writes on the stack; a phone, in the sheet (compose-sheet tests).
   beforeEach(() => {
     saves.length = 0;
+    wideScreen();
   });
   const draftOf = (root: Element): HTMLElement | null =>
     root.querySelector<HTMLElement>('[data-draft-card]');
@@ -1591,3 +1603,152 @@ describe('the draft card (H80)', () => {
     expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
   });
 });
+
+describe('compose on a phone: the page sheet (H80)', () => {
+  beforeEach(() => {
+    saves.length = 0;
+  });
+  const COMPOSE = { categories: LANES, timeZone: TZ, today: TODAY, pools: [], initials: 'YL' };
+  /** Home with the shell's sheet host beside it, as the shell mounts them. */
+  function withSheet() {
+    return render(
+      <PeopleProvider me="u-me" people={{ 'u-me': { name: 'Yoonji Lee', photo: null } }}>
+        <InputSheetProvider>
+          <SheetProbe />
+          <ShellDataProvider value={{ categories: LANES, compose: COMPOSE }}>
+            <HomeGround
+              initialView={homeView}
+              cards={cards(POSTS)}
+              pinned={[]}
+              categories={LANES}
+              today={TODAY}
+              timeZone={TZ}
+              initials="YL"
+              scrollToMonth={null}
+              board="stair"
+            />
+            <SheetHost context={COMPOSE} />
+          </ShellDataProvider>
+        </InputSheetProvider>
+      </PeopleProvider>,
+    );
+  }
+  const sheetOf = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-splash-modal] [data-compose-sheet]');
+  const field = (label: string): HTMLTextAreaElement =>
+    sheetOf()!.querySelector<HTMLTextAreaElement>(`[aria-label="${label}"]`)!;
+  function compose(root: Element): HTMLElement {
+    fireEvent.click(root.querySelector('[data-board-column] [data-compose]')!);
+    return sheetOf()!;
+  }
+
+  it('is the page sheet — its grabber, its frame — holding the draft card’s fields in the card’s order', () => {
+    const { container } = withSheet();
+    const sheet = compose(container);
+    expect(sheet.getAttribute('role')).toBe('dialog');
+    expect(sheet.getAttribute('aria-label')).toBe('New page');
+    expect(sheet.hasAttribute('data-splash-sheet')).toBe(true);
+    expect(sheet.querySelector('[data-sheet-handle]')).not.toBeNull();
+    expect(sheet.className).toContain('rounded-t-[32px]');
+    // Not seated on the stack: the stack is not held for writing.
+    expect(container.querySelector('[data-stack] [data-draft-card]')).toBeNull();
+    expect(container.querySelector('[data-stack]')!.hasAttribute('data-writing')).toBe(false);
+    const card = sheet.querySelector('[data-draft-card]')!;
+    expect(card.querySelector('[data-draft-title-row] [aria-label="Icon"]')).not.toBeNull();
+    expect(card.querySelector('[data-draft-title-row] [aria-label="Title"]')).not.toBeNull();
+    expect(card.querySelector('[data-draft-header] [data-draft-date]')).not.toBeNull();
+    expect(card.querySelector('[data-draft-header] [data-draft-category]')!.textContent).toBe(
+      '+ Category',
+    );
+    const content = card.querySelector('[aria-label="Content"]')!;
+    const footer = card.querySelector('[data-draft-footer]')!;
+    expect(
+      card.querySelector('[data-draft-header]')!.compareDocumentPosition(content) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(content.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(footer.querySelector('[data-draft-cancel]')).not.toBeNull();
+    expect(footer.querySelector('[data-draft-save]')).not.toBeNull();
+  });
+
+  it('closes at once when nothing is written, by the dimmed screen', () => {
+    const { container } = withSheet();
+    compose(container);
+    fireEvent.click(document.querySelector('[data-splash-modal] [data-sheet-scrim]')!);
+    expect(container.querySelector('[data-sheet-open]')).toBeNull();
+  });
+
+  it('asks Discard this page? when written, from the dimmed screen, Escape or Cancel', () => {
+    const { container } = withSheet();
+    compose(container);
+    fireEvent.change(field('Content'), { target: { value: 'the sea wall' } });
+    for (const leave of [
+      () => fireEvent.click(document.querySelector('[data-splash-modal] [data-sheet-scrim]')!),
+      () => fireEvent.keyDown(window, { key: 'Escape' }),
+      () => fireEvent.click(sheetOf()!.querySelector('[data-draft-cancel]')!),
+    ]) {
+      leave();
+      const ask = sheetOf()!.querySelector('[data-draft-confirm]')!;
+      expect(ask.getAttribute('aria-label')).toBe('Discard this page?');
+      expect(container.querySelector('[data-sheet-open]')).not.toBeNull();
+      fireEvent.click(ask.querySelector('[data-draft-keep]')!);
+      expect(sheetOf()!.querySelector('[data-draft-confirm]')).toBeNull();
+      expect(field('Content').value).toBe('the sea wall');
+    }
+    fireEvent.click(sheetOf()!.querySelector('[data-draft-cancel]')!);
+    fireEvent.click(sheetOf()!.querySelector('[data-draft-discard]')!);
+    expect(container.querySelector('[data-sheet-open]')).toBeNull();
+  });
+
+  it('saves: the sheet closes, the post is seated by its date and brought to the top, ringed', async () => {
+    const { container } = withSheet();
+    compose(container);
+    const id = (await waitFor(() => sheetOf()!.querySelector('[data-draft-card]')!)).getAttribute(
+      'data-draft-card',
+    )!;
+    fireEvent.change(field('Title'), { target: { value: 'Sea wall' } });
+    fireEvent.click(sheetOf()!.querySelector('[data-draft-save]')!);
+    expect(container.querySelector('[data-sheet-open]')).toBeNull();
+    expect(saves).toHaveLength(1);
+    expect(saves[0].input.id).toBe(id);
+    await settled(container);
+    expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
+    await ringed(container, id);
+    saves[0].resolve({ ok: true, splash: { id } });
+  });
+
+  it('opens the sheet again with its fields when the save is refused, and says why', async () => {
+    const { container } = withSheet();
+    compose(container);
+    const id = sheetOf()!.querySelector('[data-draft-card]')!.getAttribute('data-draft-card');
+    fireEvent.change(field('Title'), { target: { value: 'Sea wall' } });
+    fireEvent.change(field('Content'), { target: { value: 'the long way round' } });
+    fireEvent.click(sheetOf()!.querySelector('[data-draft-save]')!);
+    expect(sheetOf()).toBeNull();
+    saves[0].resolve({ ok: false, message: 'The server said no.' });
+    await waitFor(() => expect(sheetOf()).not.toBeNull());
+    expect(sheetOf()!.querySelector('[data-draft-card]')!.getAttribute('data-draft-card')).toBe(id);
+    expect(field('Title').value).toBe('Sea wall');
+    expect(field('Content').value).toBe('the long way round');
+    expect(sheetOf()!.querySelector('[data-draft-error]')!.textContent).toBe('The server said no.');
+  });
+
+  it('is the same composer in the post sheet’s frame on a wide screen with no stack', () => {
+    wideScreen();
+    render(
+      <InputSheetProvider>
+        <Opener />
+        <SheetHost context={COMPOSE} />
+      </InputSheetProvider>,
+    );
+    fireEvent.click(document.querySelector('[data-open]')!);
+    const sheet = document.querySelector('[data-sheet-frame] [data-compose-sheet]')!;
+    expect(sheet.querySelector('[data-draft-card] [data-draft-save]')).not.toBeNull();
+    expect(document.querySelector('[data-splash-modal]')).toBeNull();
+  });
+});
+
+function Opener() {
+  const { openSheet } = useInputSheet();
+  return <button type="button" data-open onClick={() => openSheet()} />;
+}

@@ -5,18 +5,29 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import type { Card, GridColumn } from '@/features/home/grid';
 import type { PoolScope } from '@/features/pool/compose-scope';
 import type { SplashSummary } from '@/features/splash/summary';
+import type { ComposerSnapshot } from '@/features/splash-sheet/use-composer';
 
 /**
- * The one sheet (SPEC 6, H21): the post sheet, from the FAB on a phone; on a
- * wide screen the composer is always there in the right half instead. Every
- * later word is written on the post's page.
+ * The one composer sheet (SPEC 6, H80): on a phone, compose from anywhere —
+ * Home, a pool, a lane's page, the diary list — opens the page sheet with
+ * the draft card's fields; on a wide screen the stack writes a draft card
+ * in place, and only a screen with no stack opens the sheet. Every later
+ * word is written on the post's page.
  *
  * The provider also carries the post just dropped — optimistically, before
  * the server has it (CLAUDE.md, the principle) — so the ground can seat its
  * pill at once and play the commit ripple there.
  */
 export type OpenSheet =
-  | { kind: 'splash'; pool: PoolScope | null }
+  | {
+      kind: 'splash';
+      pool: PoolScope | null;
+      /** The post's id, minted as the sheet opens, so the card it becomes is the same card. */
+      id: string;
+      /** A refused Save opened again (H80): the fields as they were, and why. */
+      snapshot: ComposerSnapshot | null;
+      error: string | null;
+    }
   /** The same sheet in edit mode (review): a splash's title, icon, dates, lane, audience. */
   | { kind: 'edit'; splashId: string; pool?: PoolScope | null }
   | null;
@@ -58,6 +69,11 @@ type SheetApi = {
   sheet: OpenSheet;
   /** From a pool, with that pool as the default (H23); from Home, with none. */
   openSheet: (pool?: PoolScope | null) => void;
+  /**
+   * A refused Save (H80): the sheet opens again with its fields and photos
+   * and says why — unless another has been opened since, which is left be.
+   */
+  reopenSheet: (again: Extract<OpenSheet, { kind: 'splash' }>) => void;
   /** The pencil on a card or a splash's page: the sheet in edit mode. */
   /** From a pool screen, with that pool (0022): its lanes and Together; from Home, none. */
   openEdit: (splashId: string, pool?: PoolScope | null) => void;
@@ -90,7 +106,12 @@ export function InputSheetProvider({ children }: { children: ReactNode }) {
   );
 
   const openSheet = useCallback(
-    (pool: PoolScope | null = null) => setSheet({ kind: 'splash', pool }),
+    (pool: PoolScope | null = null) =>
+      setSheet({ kind: 'splash', pool, id: crypto.randomUUID(), snapshot: null, error: null }),
+    [],
+  );
+  const reopenSheet = useCallback(
+    (again: Extract<OpenSheet, { kind: 'splash' }>) => setSheet((current) => current ?? again),
     [],
   );
   const closeSheet = useCallback(() => setSheet(null), []);
@@ -127,6 +148,7 @@ export function InputSheetProvider({ children }: { children: ReactNode }) {
     () => ({
       sheet,
       openSheet,
+      reopenSheet,
       closeSheet,
       openEdit,
       pendingEdits,
@@ -143,6 +165,7 @@ export function InputSheetProvider({ children }: { children: ReactNode }) {
     [
       sheet,
       openSheet,
+      reopenSheet,
       closeSheet,
       openEdit,
       pendingEdits,

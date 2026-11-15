@@ -17,7 +17,7 @@ import { usePrefersReducedMotion } from '@/components/ui/waves/use-reduced-motio
 import { useWide, WIDE_QUERY } from '@/components/ui/use-wide';
 import { FLIP_SPRING } from '@/features/home/use-flip';
 import { useInputSheet } from '@/features/input-sheet/sheet-provider';
-import { SHEET_MAX_HEIGHT } from '@/features/splash-sheet/sheet-frame';
+import { SHEET_FULL_HEIGHT, SHEET_MAX_HEIGHT } from '@/features/splash-sheet/sheet-frame';
 
 import { useSplashOpening } from './opening-context';
 
@@ -77,6 +77,10 @@ export function SplashModal({
   onLeave,
   silentExit,
   fit = false,
+  label = 'Page',
+  onDismiss,
+  fill = false,
+  data,
   children,
 }: {
   closeTo: string | null;
@@ -86,6 +90,21 @@ export function SplashModal({
   silentExit?: () => boolean;
   /** Content-fit on a wide screen too, not 90vh: a sheet that is not a record (settings). */
   fit?: boolean;
+  label?: string;
+  /**
+   * The hand closing it — the dimmed screen, a drag down, Escape — asks this
+   * instead, and the sheet stays until its owner takes it away (the composer,
+   * which asks *Discard this page?* first, H80). Escape is then the owner's.
+   */
+  onDismiss?: () => void;
+  /**
+   * At its full height from the start, the body handed to the content as it
+   * is, no padding and no scroll of its own: the composer, whose content
+   * scrolls inside it and whose Save is pinned to its foot (H80).
+   */
+  fill?: boolean;
+  /** More attributes the sheet is found by. */
+  data?: Record<`data-${string}`, string>;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -149,7 +168,10 @@ export function SplashModal({
     const node = frame.current;
     const body = scroller.current;
     const release = holdScreen();
-    panel.current?.focus({ preventScroll: true });
+    // A field inside already took focus as it mounted (the composer's): it keeps it.
+    if (!panel.current?.contains(document.activeElement)) {
+      panel.current?.focus({ preventScroll: true });
+    }
     return () => {
       release();
       opener?.focus?.({ preventScroll: true });
@@ -166,6 +188,7 @@ export function SplashModal({
   // Escape closes — not while the compose sheet is up over it, nor while a
   // field is being written in.
   useEffect(() => {
+    if (onDismiss) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || compose) return;
       const target = event.target;
@@ -179,7 +202,10 @@ export function SplashModal({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [close, compose]);
+  }, [close, compose, onDismiss]);
+
+  // The hand's ways out: its owner's question, when it has one.
+  const dismiss = onDismiss ?? close;
 
   // Above the keyboard: the visual viewport sizes and lifts the sheet, and
   // the field in focus is scrolled into what remains.
@@ -255,7 +281,7 @@ export function SplashModal({
 
   function onDragEnd(_: unknown, info: PanInfo): void {
     press.current = null;
-    if (info.offset.y > DISMISS_PX || info.velocity.y > DISMISS_VELOCITY) close();
+    if (info.offset.y > DISMISS_PX || info.velocity.y > DISMISS_VELOCITY) dismiss();
   }
 
   // One animation for everyone: the board's spring slides it, a short fade
@@ -289,7 +315,7 @@ export function SplashModal({
             aria-label="Close"
             tabIndex={-1}
             data-sheet-scrim
-            onClick={close}
+            onClick={dismiss}
             className="scrim absolute inset-0"
             initial={handoff === 'adopt' ? false : { opacity: 0 }}
             animate={{ opacity: leaving || handoff === 'dismissed' ? 0 : 1 }}
@@ -299,9 +325,10 @@ export function SplashModal({
             ref={panel}
             role="dialog"
             aria-modal="true"
-            aria-label="Page"
+            aria-label={label}
             tabIndex={-1}
             data-splash-sheet
+            {...data}
             onKeyDown={trapTab}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -318,7 +345,7 @@ export function SplashModal({
             onAnimationComplete={() => {
               if (leaving) leave();
             }}
-            className={`surface relative flex ${SHEET_MAX_HEIGHT} w-full flex-col overflow-hidden rounded-t-[32px] bg-white shadow-xl outline-none ${
+            className={`surface relative flex ${SHEET_MAX_HEIGHT} ${fill ? SHEET_FULL_HEIGHT : ''} w-full flex-col overflow-hidden rounded-t-[32px] bg-white shadow-xl outline-none ${
               fit
                 ? 'lg:max-h-[min(88dvh,var(--sheet-room))] lg:w-[min(1040px,90vw)]'
                 : 'lg:h-full lg:max-h-none lg:w-[clamp(520px,46vw,640px)] lg:rounded-none'
@@ -340,8 +367,16 @@ export function SplashModal({
             <div
               ref={scroller}
               data-sheet-body
-              className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 lg:px-8"
-              style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+              className={
+                fill
+                  ? 'flex min-h-0 flex-1 flex-col'
+                  : 'no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 lg:px-8'
+              }
+              style={
+                fill
+                  ? undefined
+                  : { paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }
+              }
             >
               {leaving ? held : children}
             </div>

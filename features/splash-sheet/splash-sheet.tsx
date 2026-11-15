@@ -11,7 +11,9 @@ export { SHEET_MAX_HEIGHT } from './sheet-frame';
 
 /**
  * The post sheet (SPEC 6, H21): the composer as a white bottom sheet on the
- * dimmed ground, from the compose disc at every width (review).
+ * dimmed ground. Dormant since the one composer sheet (`ComposeSheet`, H80)
+ * took its last entry — the lane's page, the diary list, the ground loading;
+ * kept with its tests, as `SplashComposer` is.
  */
 export function SplashSheet({
   context,

@@ -17,6 +17,9 @@ import { DraftCategory, DraftDate } from './draft-pickers';
 import { DraftShare } from './draft-share';
 import type { StackDraft } from './stack-draft';
 
+/** What the draft card is told of the page being written: wherever it is drawn, the stack or the sheet. */
+export type ComposeDraft = Pick<StackDraft, 'id' | 'pool' | 'snapshot' | 'error'>;
+
 /**
  * How long the date chip rests before the draft is seated again (H80): a
  * date typed into the field changes with each part, and the stack moves
@@ -46,6 +49,11 @@ function isComposing(event: React.KeyboardEvent): boolean {
  * The date is where the page is seated: once it rests (`RESEAT_MS`), the
  * stack moves the draft to its date's slot. Esc or Cancel discards it;
  * with anything written, Cancel asks first, inside the card.
+ *
+ * On a phone the same fields, in the same order, are the page sheet's
+ * (`ComposeSheet`, H80): there is no seat to move, and the sheet's own ways
+ * out — a drag down, the dimmed screen — ask through `dismissRef` as
+ * Cancel does.
  */
 export function DraftCard({
   draft,
@@ -53,12 +61,16 @@ export function DraftCard({
   onReseat,
   onDiscard,
   onSave,
+  dismissRef,
 }: {
-  draft: StackDraft;
+  draft: ComposeDraft;
   context: SheetContext;
-  onReseat: (start: IsoDate, end: IsoDate | null) => void;
+  /** On the stack: the date rested, the draft is seated again. */
+  onReseat?: (start: IsoDate, end: IsoDate | null) => void;
   onDiscard: () => void;
   onSave: (handoff: DropHandoff, snapshot: ComposerSnapshot) => void;
+  /** Set to Cancel, for the frame around it to ask the same way. */
+  dismissRef?: React.RefObject<(() => void) | null>;
 }) {
   const composer = useComposer({ context, pool: draft.pool, initial: draft.snapshot });
   const c = composer;
@@ -72,6 +84,7 @@ export function DraftCard({
   const start = composer.annotation?.date ?? context.today;
   const end = composer.annotation?.endDate ?? null;
   useEffect(() => {
+    if (!onReseat) return;
     const timer = window.setTimeout(() => onReseat(start, end), RESEAT_MS);
     return () => window.clearTimeout(timer);
   }, [start, end, onReseat]);
@@ -87,6 +100,7 @@ export function DraftCard({
   const cancelRef = useRef(escape);
   useEffect(() => {
     cancelRef.current = escape;
+    if (dismissRef) dismissRef.current = cancel;
   });
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {

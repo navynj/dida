@@ -17,7 +17,6 @@ import { usePrefersReducedMotion } from '@/components/ui/waves/use-reduced-motio
 import type { MyCategory } from '@/lib/queries/profile';
 
 import { useTheme } from '@/features/people/theme-provider';
-import { SHEET_TOP_GAP_PX, useVisualViewport } from '@/features/splash-sheet/sheet-frame';
 
 import { CARD_PX, CardFace, face, SPINE_PX, TINT_STEP } from './card-face';
 import {
@@ -279,7 +278,6 @@ export function StairBoard({
   low = false,
   collapsed = false,
   draft = null,
-  expanded = false,
 }: {
   /** Newest first, in the order `flip.ids` follows. */
   cards: Card[];
@@ -304,12 +302,6 @@ export function StairBoard({
    * is on top, and nothing flips the stack until it is saved or discarded.
    */
   draft?: { id: string; face: ReactNode } | null;
-  /**
-   * On a phone, while a draft is written (H80): the opposite of
-   * `collapsed` — the stack takes the visible viewport, the keyboard's room
-   * taken out, less the sheet's top band, and the top card most of it.
-   */
-  expanded?: boolean;
 }) {
   const { ids, n, next, bringForward } = flip;
   const byId = new Map(cards.map((card) => [card.splash.id, card]));
@@ -318,7 +310,6 @@ export function StairBoard({
   const reducedMotion = usePrefersReducedMotion();
   // Writing: the stack is held still under the draft (H80).
   const writing = draft !== null;
-  const tall = expanded && !wide;
 
   // The board measures its room. On a phone the box is the card's own and
   // the stair runs down; on a wide screen the board fills its half, the
@@ -334,8 +325,6 @@ export function StairBoard({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  // Expanded, the box is pinned to what the keyboard leaves (H80), as a sheet is.
-  const viewport = useVisualViewport(box, tall);
   let stair: Stair;
   if (horizontal) {
     const width = room?.width ?? 0;
@@ -362,16 +351,15 @@ export function StairBoard({
   } else {
     // Low only on a phone: a wide screen's column has the height to spare.
     const short = low && !wide;
-    // Expanded for a draft, one step below so the card has the room (H80).
-    const down = short || tall ? LOW_DOWN : DOWN;
+    const down = short ? LOW_DOWN : DOWN;
     const least = short ? LOW_CARD_PX : CARD_PX;
     stair = {
       horizontal: false,
       width: room?.width ?? 0,
       // A phone's card is its own height, its box sized by the stack; only a
-      // box sized from outside — the wide column, the expanded overlay —
-      // gives the card what the steps leave.
-      height: wide || tall ? Math.max(least, (room?.height ?? 0) - down * STEP_PX) : least,
+      // box sized from outside — the wide column — gives the card what the
+      // steps leave.
+      height: wide ? Math.max(least, (room?.height ?? 0) - down * STEP_PX) : least,
       left: 0,
       down,
       up: UP,
@@ -514,21 +502,7 @@ export function StairBoard({
       ref={box}
       data-diving-board
       data-board="stair"
-      data-expanded={tall ? '' : undefined}
-      className={
-        tall
-          ? // Over the ground, from under the sheet's top band to the keyboard (H80).
-            'fixed inset-x-0 z-30 mx-auto max-w-xl px-4'
-          : 'relative z-10 shrink-0 px-4 lg:min-h-0 lg:flex-1 lg:px-0'
-      }
-      style={
-        tall
-          ? {
-              top: `max(${SHEET_TOP_GAP_PX}px, env(safe-area-inset-top, 0px))`,
-              bottom: viewport?.bottom ?? 0,
-            }
-          : undefined
-      }
+      className="relative z-10 shrink-0 px-4 lg:min-h-0 lg:flex-1 lg:px-0"
     >
       {cards.length > 0 ? (
         <div

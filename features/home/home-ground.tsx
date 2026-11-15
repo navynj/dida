@@ -120,9 +120,17 @@ export function HomeGround({
   // Every visit opens on the Calendar, not the view used last (review); a
   // view chosen here holds while I stay.
   const [view, setView] = useState<HomeView>(initialView);
-  const { pendingDrop, clearDropped, dropMessage, pendingDeletes, markDeleted, pendingEdits } =
-    useInputSheet();
-  // Compose writes on the stack (H80): a draft card, seated by its date.
+  const {
+    pendingDrop,
+    clearDropped,
+    dropMessage,
+    pendingDeletes,
+    markDeleted,
+    pendingEdits,
+    openSheet,
+  } = useInputSheet();
+  // Compose writes on the stack on a wide screen (H80): a draft card, seated
+  // by its date. On a phone it opens the page sheet (`ComposeSheet`).
   const { compose } = useShellData();
   const stackDraft = useStackDraft(timeZone, today);
   const writing = stackDraft.draft !== null;
@@ -232,6 +240,8 @@ export function HomeGround({
   // The recipe the board drew each piece with: what Inline shows while it is the recipe's.
   const [recipes, setRecipes] = useState<Record<string, Recipe>>({});
   const wide = useWide();
+  // A phone writes in the page sheet; a wide screen on the stack (H80).
+  const startCompose = (): void => (wide ? stackDraft.open() : openSheet());
   const laneView = view === 'lane';
   // The panel edits the view on screen: the Calendar's layouts, or the Lane view's.
   const viewDrafts = laneView ? laneDrafts : drafts;
@@ -486,7 +496,6 @@ export function HomeGround({
               onDelete={remove}
               low={boardView}
               collapsed={editing.activeId !== null}
-              expanded={writing}
               draft={
                 stackDraft.draft && compose
                   ? {
@@ -542,11 +551,11 @@ export function HomeGround({
 
           {/* The foot (H23): Home — each tap switches the view, Lane to
               Date and back (review) — then Pool, and compose at the right. */}
-          <GroundFoot here="home" onCompose={() => stackDraft.open()} />
+          <GroundFoot here="home" onCompose={startCompose} />
         </div>
 
         {/* Wide: the same three, stacked at the right edge (review). */}
-        <GroundFoot slot="wide" here="home" onCompose={() => stackDraft.open()} />
+        <GroundFoot slot="wide" here="home" onCompose={startCompose} />
       </div>
 
       {newLane ? (
