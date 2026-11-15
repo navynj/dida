@@ -1442,16 +1442,13 @@ describe('the draft card (H80)', () => {
       expect(images.querySelector('[data-draft-add-image]')!.className).toContain('h-14 w-14');
       expect(images.querySelector('[data-draft-add-image] svg')).not.toBeNull();
       expect(footer.textContent).not.toContain('+ Add Image');
-      const privately = footer.querySelector('[data-share-private]')!;
-      // No diary to share to: no Share to, the full private sentence (H75).
-      expect(privately.textContent).toBe('Only you can see this');
-      expect(privately.closest('[data-share-to]')!.textContent).toBe('Only you can see this');
-      expect(privately.closest('[data-share-to]')).not.toBeNull();
+      // No diary to share to: no Share to row and no private marker (H78d);
+      // the image row runs straight on to Cancel and Save.
+      expect(footer.querySelector('[data-share-to]')).toBeNull();
+      expect(footer.querySelector('[data-share-private]')).toBeNull();
+      expect(footer.textContent).not.toContain('Only you can see this');
       expect(
-        images.compareDocumentPosition(privately) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-      expect(
-        privately.compareDocumentPosition(cancel) & Node.DOCUMENT_POSITION_FOLLOWING,
+        images.compareDocumentPosition(cancel) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
       // Something to save: Save is the one filled thing on the card (H20f).
       fireEvent.change(field(container, 'Content'), { target: { value: 'a walk' } });

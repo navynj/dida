@@ -124,8 +124,9 @@ function SharePicker({
  * lane chip beside it while the line has room. The diaries on come first,
  * so what is shared is never behind "+N"; "+N" takes the last slot when
  * the rest do not fit and opens the picker (a popover on a wide screen, a
- * bottom sheet on a phone, as the category's). With no diary to share to,
- * *Only you can see this*, and nothing to tap.
+ * bottom sheet on a phone, as the category's). With no diary to share to
+ * there is no choice to make, and no row: private carries no marker (H78d),
+ * and H75's explicit private is said only where a diary could be chosen.
  */
 export function DraftShare(props: ShareProps) {
   const { pools, shared, startLane, onTurn } = props;
@@ -181,15 +182,7 @@ export function DraftShare(props: ShareProps) {
     return () => document.removeEventListener('keydown', onKey, true);
   }, [open]);
 
-  if (pools.length === 0) {
-    return (
-      <div data-share-to className="flex items-center">
-        <span data-share-private className="text-pool-500 text-xs">
-          Only you can see this
-        </span>
-      </div>
-    );
-  }
+  if (pools.length === 0) return null;
   const photoOf = (id: string): string | null => photos.find((p) => p.id === id)?.photo ?? null;
   const shown = Math.min(layout?.shown ?? ordered.length, ordered.length);
   const lanes = layout?.lanes ?? true;

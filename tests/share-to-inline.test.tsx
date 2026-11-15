@@ -244,11 +244,11 @@ describe('Share to on the draft card: the diaries on one line (H80, H75)', () =>
     ).toEqual(['p-crew']);
   });
 
-  it('with no diary to share to, says the full private sentence and offers nothing to tap', () => {
+  it('with no diary to share to, draws no row at all: no choice, no private marker (H78d)', () => {
     const { container } = render(<Row pools={[]} />);
-    const row = container.querySelector('[data-share-to]')!;
-    expect(row.textContent).toBe('Only you can see this');
-    expect(row.querySelector('button')).toBeNull();
+    expect(container.querySelector('[data-share-to]')).toBeNull();
+    expect(container.querySelector('[data-share-private]')).toBeNull();
+    expect(container.textContent).not.toContain('Only you can see this');
   });
 });
 

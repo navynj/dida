@@ -139,8 +139,9 @@ test('compose writes on the stack (wide) or the page sheet (phone); Save seats i
   // `…` ends the icon-and-title row, as on the finished card; no row of its own.
   await expect(draft.locator('[data-draft-title-row] [data-compose-more]')).toBeVisible();
   await expect(draft.locator('[data-draft-top]')).toHaveCount(0);
-  // No diary to share to: no Share to, the full private sentence (H75).
-  await expect(draft.locator('[data-share-to]')).toHaveText('Only you can see this');
+  // No diary to share to: no Share to row at all, no private marker (H78d).
+  await expect(draft.locator('[data-share-to]')).toHaveCount(0);
+  await expect(draft).not.toContainText('Only you can see this');
   await draft.locator('[aria-label="Content"]').fill('the tide was out');
   // The category picker: a search field always, filtering the chips as typed.
   await draft.locator('[data-draft-category]').click();
