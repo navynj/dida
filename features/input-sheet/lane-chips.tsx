@@ -25,16 +25,25 @@ export function LaneChips({
   selectedId,
   onSelect,
   surface = 'pool',
+  search = 'past-threshold',
+  wrap = false,
 }: {
   categories: Pick<MyCategory, 'id' | 'name' | 'icon'>[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   /** The row's own ground: the old sheet's grey band, or a white page. */
   surface?: 'pool' | 'white';
+  /**
+   * When the search field shows: past LANE_SEARCH_THRESHOLD (the post
+   * sheet), or always (the draft card's category picker, H80).
+   */
+  search?: 'past-threshold' | 'always';
+  /** The chips wrap onto rows instead of scrolling sideways (the draft card's picker, H80). */
+  wrap?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const offered = categories;
-  const searchable = offered.length > LANE_SEARCH_THRESHOLD;
+  const searchable = search === 'always' || offered.length > LANE_SEARCH_THRESHOLD;
   const shown = searchable
     ? offered.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()))
     : offered;
@@ -48,7 +57,11 @@ export function LaneChips({
       }
     >
       {searchable ? (
-        <label className="text-pool-500 flex items-center gap-2 text-base">
+        <label
+          className={`text-pool-500 flex items-center gap-2 text-base ${
+            search === 'always' ? 'bg-pool-100 rounded-full px-3 py-1.5' : ''
+          }`}
+        >
           <Search aria-hidden size={14} />
           <input
             value={query}
@@ -65,7 +78,9 @@ export function LaneChips({
       <div
         role="group"
         aria-label="Category"
-        className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1"
+        className={
+          wrap ? 'flex flex-wrap gap-1.5' : 'no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1'
+        }
       >
         {shown.map((category) => (
           <CategoryChip

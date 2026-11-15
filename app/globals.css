@@ -677,6 +677,11 @@ body {
 [data-mode='pastel'] .water-ground .card-filled [data-avatar-blank] {
   background-color: var(--surface-2);
 }
+/* A picker opened from the filled card (H80): white, its chips and search
+   field on surface-1 again rather than the card's white. */
+.card-filled .picker-surface {
+  --color-pool-100: var(--surface-1);
+}
 /* A face with no photo: surface-1, muted initials — white on a surface-1
    card, so it keeps its circle. */
 [data-mode='light'] .water-ground [data-avatar-blank] {
