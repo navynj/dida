@@ -42,6 +42,8 @@ export function SharePoolChip({
   choosing,
   onTurn,
   onChoose,
+  plus = false,
+  compact = false,
 }: {
   pool: AudiencePool;
   laneId: string | null;
@@ -51,6 +53,10 @@ export function SharePoolChip({
   choosing: boolean;
   onTurn: (poolLaneId: string | null) => void;
   onChoose: () => void;
+  /** Off, it reads as the card's other offers: "+ name" (the draft card's line, H80). */
+  plus?: boolean;
+  /** On, its name and the small chevron alone, the lane's name left to the picker (a full line, H80). */
+  compact?: boolean;
 }) {
   const lane = pool.lanes.find((l) => l.id === laneId);
   const face = <Monogram name={pool.name} size="chip" photo={photo} />;
@@ -62,8 +68,9 @@ export function SharePoolChip({
         aria-pressed={false}
         disabled={!start}
         onClick={() => onTurn(start)}
-        className="bg-pool-100 hover:text-ink inline-flex max-w-[14rem] items-center gap-1 rounded-full px-2.5 py-1 text-xs text-(--text-inactive) disabled:opacity-40"
+        className="bg-pool-100 hover:text-ink inline-flex max-w-[14rem] shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs text-(--text-inactive) disabled:opacity-40"
       >
+        {plus ? <span aria-hidden>+</span> : null}
         {face}
         <span className="truncate">{pool.name}</span>
       </button>
@@ -73,7 +80,9 @@ export function SharePoolChip({
     <span
       data-share-pool={pool.id}
       data-on=""
-      className="bg-ink inline-flex max-w-[18rem] items-center gap-1 rounded-full pr-1 text-xs text-white"
+      className={`bg-ink inline-flex max-w-[18rem] shrink-0 items-center gap-1 rounded-full text-xs text-white ${
+        compact ? 'pr-1.5' : 'pr-1'
+      }`}
     >
       <button
         type="button"
@@ -85,19 +94,33 @@ export function SharePoolChip({
         {face}
         <span className="truncate">{pool.name}</span>
       </button>
-      <CategoryChip
-        icon={lane.icon}
-        name={lane.name}
-        selected
-        onInk
-        data-share-lane={lane.id}
-        aria-haspopup="dialog"
-        aria-expanded={choosing}
-        aria-label={`Category in ${pool.name}: ${lane.name}. Change it`}
-        onSelect={onChoose}
-        trailing={<ChevronDown aria-hidden size={12} className="-mr-0.5 opacity-80" />}
-        className="min-w-0"
-      />
+      {compact ? (
+        <button
+          type="button"
+          data-share-lane={lane.id}
+          aria-haspopup="dialog"
+          aria-expanded={choosing}
+          aria-label={`Category in ${pool.name}: ${lane.name}. Change it`}
+          onClick={onChoose}
+          className="-my-0.5 rounded-full p-0.5"
+        >
+          <ChevronDown aria-hidden size={12} className="opacity-80" />
+        </button>
+      ) : (
+        <CategoryChip
+          icon={lane.icon}
+          name={lane.name}
+          selected
+          onInk
+          data-share-lane={lane.id}
+          aria-haspopup="dialog"
+          aria-expanded={choosing}
+          aria-label={`Category in ${pool.name}: ${lane.name}. Change it`}
+          onSelect={onChoose}
+          trailing={<ChevronDown aria-hidden size={12} className="-mr-0.5 opacity-80" />}
+          className="min-w-0"
+        />
+      )}
     </span>
   );
 }
