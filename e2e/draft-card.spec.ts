@@ -45,6 +45,8 @@ test.beforeAll(async () => {
     .select('id')
     .single();
   if (lane.error) throw lane.error;
+  // A second category, for the picker's search to filter out.
+  await admin.from('my_categories').insert({ user_id: user, name: 'Reading', icon: '📖' });
   for (const [name, back] of [
     ['near', 1],
     ['middle', 5],
@@ -96,6 +98,15 @@ test('compose writes on the stack: the draft moves to its date, Save keeps it th
 }) => {
   test.setTimeout(120_000);
   await signIn(page, baseURL!);
+  // Which date inputs had their picker opened: a native picker draws
+  // outside the page, so the call is what can be seen.
+  await page.addInitScript(() => {
+    const opened: string[] = [];
+    (window as unknown as { __opened: string[] }).__opened = opened;
+    HTMLInputElement.prototype.showPicker = function (this: HTMLInputElement) {
+      opened.push(this.getAttribute('aria-label') ?? '');
+    };
+  });
   await page.goto('/');
   const stack = page.locator('[data-stack]');
   await expect(stack).toBeVisible({ timeout: 60_000 });
@@ -112,12 +123,28 @@ test('compose writes on the stack: the draft moves to its date, Save keeps it th
   await expect(top).toHaveAttribute('data-stack-card', id);
 
   await draft.locator('[aria-label="Content"]').fill('the tide was out');
-  // Seven days back: between middle (5) and far (10).
-  // The date opens its picker; the field is inside it.
+  // The category picker: a search field always, filtering the chips as typed.
+  await draft.locator('[data-draft-category]').click();
+  const picker = page.locator('[role="dialog"][aria-label="Category"]');
+  await expect(picker).toBeVisible();
+  const chips = picker.locator('[role="group"][aria-label="Category"]');
+  await expect(chips).toContainText('Walks');
+  await expect(chips).toContainText('Reading');
+  await picker.getByPlaceholder('Search categories').fill('wal');
+  await expect(chips).toContainText('Walks');
+  await expect(chips).not.toContainText('Reading');
+  await chips.getByRole('button', { name: /Walks/ }).click();
+  await expect(picker).toHaveCount(0);
+  await expect(draft.locator('[data-draft-category]')).toContainText('Walks');
+
+  // Seven days back: between middle (5) and far (10). One tap on the date
+  // opens its picker itself, no panel between; the day is then chosen there.
   await draft.locator('[data-draft-date]').click();
-  await draft.locator('input[type="date"]').fill(daysAgo(7));
-  // Closed by a tap outside it, as any popover.
-  await draft.locator('[data-popover-close]').click({ position: { x: 5, y: 5 } });
+  expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual(
+    ['Date'],
+  );
+  await expect(page.locator('[role="dialog"][aria-label="Date"]')).toHaveCount(0);
+  await draft.locator('input[aria-label="Date"]').fill(daysAgo(7));
   await expect(page.locator('[data-stack-card][data-stair="up"]')).toHaveAttribute(
     'data-stack-card',
     posts.middle,
