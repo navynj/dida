@@ -19,6 +19,11 @@ import { ShareLanePicker } from './share-lane-picker';
  * as the lane row's own chip with a chevron: its name and face toggle the
  * pool, the lane chip only opens that pool's lanes. Selection is the ink
  * fill (H20f).
+ *
+ * `inline` (the draft card, H80): one row — *Share to*, the chips, and at
+ * its right end a short *Only you* while none is on; once one is, the
+ * chips' selected state says it. With no pool to share to, the row is the
+ * status alone, so private is still said while writing.
  */
 export function ShareToRow({
   pools,
@@ -26,6 +31,7 @@ export function ShareToRow({
   startLane,
   onTurn,
   onPick,
+  inline = false,
 }: {
   pools: AudiencePool[];
   shared: AudiencePick[];
@@ -35,11 +41,24 @@ export function ShareToRow({
   onTurn: (poolId: string, poolLaneId: string | null) => void;
   /** A lane picked by hand in the pool's lane picker. */
   onPick: (poolId: string, poolLaneId: string) => void;
+  /** One row with the status at its end (the draft card), not a line under it. */
+  inline?: boolean;
 }) {
   // The pool whose lanes are open, to change its lane.
   const [choosing, setChoosing] = useState<string | null>(null);
   const photos = useStripPools();
-  if (pools.length === 0) return null;
+  const privately = (
+    <span data-share-private className="text-pool-500 text-xs">
+      {inline ? 'Only you' : 'Only you can see this'}
+    </span>
+  );
+  if (pools.length === 0) {
+    return inline ? (
+      <div data-share-to className="flex items-center">
+        {privately}
+      </div>
+    ) : null;
+  }
   const laneOf = (poolId: string): string | null =>
     shared.find((pick) => pick.poolId === poolId)?.poolLaneId ?? null;
   const open = pools.find((p) => p.id === choosing && laneOf(p.id));
@@ -105,6 +124,7 @@ export function ShareToRow({
             </span>
           );
         })}
+        {inline && shared.length === 0 ? <span className="ml-auto">{privately}</span> : null}
       </div>
       {open ? (
         <ShareLanePicker
@@ -114,11 +134,7 @@ export function ShareToRow({
           onClose={() => setChoosing(null)}
         />
       ) : null}
-      {shared.length === 0 ? (
-        <p data-share-private className="text-pool-500 text-xs">
-          Only you can see this
-        </p>
-      ) : null}
+      {!inline && shared.length === 0 ? <p className="text-xs">{privately}</p> : null}
     </div>
   );
 }
