@@ -164,6 +164,7 @@ for (const [color, mode] of [
   ['red', 'dark'],
   ['purple', 'dark'],
   ['blue', 'dark'],
+  ['sky', 'dark'],
   ['yellow', 'light'],
   ['pink', 'pastel'],
 ] as const) {

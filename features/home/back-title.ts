@@ -117,10 +117,11 @@ export const UP_LABEL = 0.6;
 
 /**
  * The most ink the dark ground's glass takes for a white label (H82,
- * Yoonji). Past it the glass goes muddy (Yellow needed 33%), so it stays
- * unsmoked and the label turns toward ink instead.
+ * Yoonji). Past it the glass goes muddy (Yellow needed 33%; Orange and Lime
+ * read dull at 23–24%), so it stays unsmoked and the label turns toward ink
+ * instead. 20%: Yellow, Orange, Lime, Sky, Mint and Pink today.
  */
-export const SMOKE_LIMIT = 0.25;
+export const SMOKE_LIMIT = 0.2;
 
 /**
  * The ink a white label would need in the dark ground's glass (white at 20%

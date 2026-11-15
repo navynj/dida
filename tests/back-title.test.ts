@@ -143,9 +143,18 @@ describe('the read card’s label on its glass (H82)', () => {
     expect(contrast('#ffffff', red)).toBeLessThan(TITLE_CONTRAST + 0.1);
   });
 
-  it('past the limit, leaves the glass unsmoked and turns the label toward ink: Yellow alone today', () => {
+  it('past the limit, leaves the glass unsmoked and turns the label toward ink: six themes today', () => {
+    expect(SMOKE_LIMIT).toBe(0.2);
     const past = THEMES.filter((t) => smokeNeeded(t.hex) > SMOKE_LIMIT).map((t) => t.key);
-    expect(past).toEqual(['yellow']);
+    expect(past.sort()).toEqual(['lime', 'mint', 'orange', 'pink', 'sky', 'yellow']);
+    for (const t of THEMES.filter((t) => past.includes(t.key))) {
+      expect(glassSmoke(t.hex), t.key).toBe(0);
+      expect(upWords(t.hex, 'dark'), t.key).toBe(INK);
+    }
+    // Under it, white labels on smoked glass: Red, Green, Brown, Purple; Blue and Black unsmoked.
+    for (const key of ['red', 'green', 'brown', 'purple', 'blue', 'black']) {
+      expect(upWords(THEMES.find((t) => t.key === key)!.hex, 'dark'), key).toBe('#ffffff');
+    }
     expect(glassSmoke('#C08600')).toBe(0);
     expect(glassFill('#C08600', 'dark')).toBe('#cd9e33');
     expect(upWords('#C08600', 'dark')).toBe(INK);
