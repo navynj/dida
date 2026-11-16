@@ -53,7 +53,6 @@ export function SplashHeader({
   laneChip = undefined,
   description = null,
   author = null,
-  byline = null,
   place = null,
 }: {
   splash: SplashSummary;
@@ -82,9 +81,7 @@ export function SplashHeader({
   description?: { shown: boolean; onToggle: () => void } | null;
   /** Who wrote it, at the left of the meta row. */
   author?: ReactNode;
-  /** Everyone in it, under the meta row: only once others have added theirs. */
-  byline?: ReactNode;
-  /** Where it sits in a pool ("Pool · 🏕 lane"), on its own line under the byline (H75). */
+  /** Where it sits in a pool ("Pool · 🏕 lane"), on its own line under the meta row (H75). */
   place?: ReactNode;
 }) {
   const [editingTitle, setEditingTitle] = useState(false);
@@ -317,12 +314,11 @@ export function SplashHeader({
         </div>
       ) : null}
 
-      {byline || place ? (
-        // Everyone in it once others have added theirs (H75), then where it
-        // sits in a pool on a line of its own, so a name is never cut short.
+      {place ? (
+        // Where it sits in a pool, on a line of its own (H75). Who wrote
+        // each note is said on the note (H80, twelfth pass), not here.
         <div data-splash-byline className="flex flex-col gap-1.5 pt-1">
-          {byline ? <div className="min-w-0">{byline}</div> : null}
-          {place ? <div className="min-w-0">{place}</div> : null}
+          <div className="min-w-0">{place}</div>
         </div>
       ) : null}
     </header>

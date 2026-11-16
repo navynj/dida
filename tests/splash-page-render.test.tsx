@@ -377,15 +377,23 @@ describe('the white page above the water (SPEC 5, H21c)', () => {
     }
   });
 
-  it('is one column at every width: the header, then the blocks, then the add row (H75)', () => {
+  it('is one column at every width: the header, then the blocks, then the pinned add row (H75, H80)', () => {
     const { container } = page();
     const root = container.querySelector('[data-splash-page]')!;
     expect(root.className).not.toContain('lg:grid');
+    // The panel's full height on a wide screen: a short page's add row at its foot.
+    expect(root.className).toContain('lg:min-h-full');
     const side = container.querySelector('[data-splash-side]')!;
     const blocks = container.querySelector('[data-splash-blocks]')!;
+    const footer = container.querySelector('[data-page-footer]')!;
     expect(side.querySelector('[data-splash-header]')).not.toBeNull();
     expect(blocks.querySelector('[data-blocks]')).not.toBeNull();
-    expect(blocks.querySelector('[data-add-slot]')).not.toBeNull();
+    expect(footer.querySelector('[data-add-slot]')).not.toBeNull();
+    // The page's last row, pinned to the bottom of the sheet or panel.
+    expect(root.lastElementChild).toBe(footer);
+    expect(footer.className).toMatch(/\bsticky\b/);
+    expect(footer.className).toContain('bottom-0');
+    expect(footer.className).toContain('mt-auto');
     expect(side.compareDocumentPosition(blocks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -456,10 +464,14 @@ describe('writing on the page, in place', () => {
     expect(document.activeElement).toBe(row.querySelector('[data-add-field]'));
   });
 
-  it('is one quiet row under a flat hairline: my face, a field that says what it does, a photo button (H75, H78)', () => {
+  it('is one quiet row, a hairline over it only while notes scroll under it: my face, a field that says what it does, a photo button (H75, H80)', () => {
     const { container } = page({ initials: 'YL' });
     const slot = container.querySelector('[data-add-slot]')!;
-    expect(slot.querySelector('[data-add-rule] > div')!.className).toContain('border-pool-200');
+    // Nothing under it here (not in a scrolling sheet): no hairline.
+    const footer = container.querySelector('[data-page-footer]')!;
+    expect(footer.hasAttribute('data-under')).toBe(false);
+    expect(footer.className).toContain('border-transparent');
+    expect(slot.querySelector('[data-add-rule]')).toBeNull();
     expect(slot.querySelector('[data-add-wave], [data-wave-rule]')).toBeNull();
     const row = slot.querySelector('[data-add-row]')!;
     expect(row.hasAttribute('data-open')).toBe(false);
@@ -1104,12 +1116,12 @@ describe('the pool tabs and All’s labels (H75)', () => {
 
   it('on All, labels someone else’s ripple; mine to me alone first under Only me, then each pool’s run (H)', () => {
     const { container } = asOwner();
+    // On the note's first line, after its author and date (H80, twelfth pass).
+    const byline = container.querySelector('[data-thread-entry="side-a"] [data-note-byline]')!;
+    expect(byline.querySelector('[data-ripple-thread-label]')!.textContent).toBe('· in Crew');
+    expect(byline.firstElementChild!.hasAttribute('data-note-author')).toBe(true);
     expect(
-      container.querySelector('[data-block-entry="side-a"] [data-ripple-thread-label]')!
-        .textContent,
-    ).toBe('in Crew');
-    expect(
-      container.querySelector('[data-block-entry="first"] [data-ripple-thread-label]'),
+      container.querySelector('[data-thread-entry="first"] [data-ripple-thread-label]'),
     ).toBeNull();
     const groups = [...under(container, 'first').querySelectorAll('[data-reply-group]')].map(
       (g) =>

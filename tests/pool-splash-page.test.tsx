@@ -173,10 +173,11 @@ describe('adding yours, not replying (H75)', () => {
   });
 });
 
-describe('who wrote it: the meta row, then everyone in it (H80, ninth pass)', () => {
+describe('who wrote it: the meta row, then each note’s own line (H80, twelfth pass)', () => {
+  // No "In this page" list any more: each note names its author.
   const authors = (view: ReturnType<typeof page>) =>
-    [...view.container.querySelectorAll('[data-splash-side] [data-splash-author]')].map((a) =>
-      a.getAttribute('data-splash-author'),
+    [...view.container.querySelectorAll('[data-thread-entry] [data-note-author]')].map((a) =>
+      a.getAttribute('data-note-author'),
     );
   const top = (view: ReturnType<typeof page>) =>
     view.container
@@ -197,7 +198,7 @@ describe('who wrote it: the meta row, then everyone in it (H80, ninth pass)', ()
     expect(authors(view)).toEqual([MINA, ME]);
   });
 
-  it('names someone’s record by its owner first, then everyone in it (H75)', () => {
+  it('names someone’s record by its owner on the meta row, each note by its own author (H80)', () => {
     const side = {
       ...ripple('r-side', ME, 'my side', '2026-10-22T16:00:00.000Z'),
       thread_pool_id: 'p',
@@ -207,21 +208,18 @@ describe('who wrote it: the meta row, then everyone in it (H80, ninth pass)', ()
       scope: 'theirs',
     });
     expect(top(view)).toBe(MINA);
-    // After the date row, everyone in it, the owner first.
-    expect(authors(view)).toEqual([MINA, ME]);
-    const date = view.container.querySelector('[data-splash-meta-row]')!;
-    const list = view.container.querySelector('[data-splash-authors]')!;
-    expect(date.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(view.container.querySelector('[data-splash-authors-label]')!.textContent).toBe(
-      'In this page',
-    );
+    // Each note's first line names its author, in the notes' order (mine was written first).
+    expect(authors(view)).toEqual([ME, MINA]);
+    expect(view.container.querySelector('[data-splash-authors]')).toBeNull();
+    expect(view.container.textContent).not.toContain('In this page');
   });
 
   it('names me on my own', () => {
     const view = page([ripple('r-me', ME, 'mine')], { ...POOL, scope: 'mine' });
     expect(top(view)).toBe(ME);
-    // Alone in it: the top row says it; no list under the date.
+    // Alone in it (H75(c)): the meta row says it; no name beside the note.
     expect(authors(view)).toEqual([]);
+    expect(view.container.querySelector('[data-note-byline]')).toBeNull();
     expect(view.container.querySelector('[data-splash-authors]')).toBeNull();
   });
 });

@@ -16,10 +16,11 @@ import { discardingOnRefusal } from '@/features/input-sheet/media-field';
 import { deleteJointSplash } from '@/features/pool/actions';
 import { offerInstall } from '@/features/install/install-state';
 import { usePeople } from '@/features/people/people-provider';
-import { AuthorFace, SplashAuthors } from './splash-authors';
+import { AuthorFace } from './splash-authors';
+import { NoteByline } from './note-byline';
+import { PageFooter } from './page-footer';
 import { inThread, latestFromOthers, type RippleResponsesValue } from '@/features/responses/model';
 import { RippleResponses, type ResponsesMode } from '@/features/responses/ripple-responses';
-import { ThreadLabel } from '@/features/responses/thread-label';
 import { isUnseen, rememberSeen, useSeenBefore } from '@/features/responses/seen';
 import { useOpenedAt, useRippleResponses } from '@/features/responses/use-ripple-responses';
 import { authorClock } from '@/features/pool/times';
@@ -484,16 +485,8 @@ export function SplashPage({
 
   /** A block's body, the same in both layouts: read, edited, deleted alike. */
   function entryBody(block: RippleWithSplash): ReactNode {
-    // On All, someone else's ripple says which pool it was written in (H75).
-    const where =
-      block.author_id && block.author_id !== owner ? labelOf(block.thread_pool_id) : null;
     return (
       <div id={`block-${block.id}`} data-block-entry={block.id} className="pb-2">
-        {where ? (
-          <p data-ripple-thread-label>
-            <ThreadLabel>{where}</ThreadLabel>
-          </p>
-        ) : null}
         {editor?.kind === 'edit' && editor.block.id === block.id ? (
           <BlockEditor
             target={editor}
@@ -586,7 +579,9 @@ export function SplashPage({
     : null;
 
   return (
-    <div data-splash-page className="flex flex-1 flex-col bg-white pt-1">
+    // At least the panel's height on a wide screen, so a short page's add
+    // row sits at the foot with the room above it (H80, twelfth pass).
+    <div data-splash-page className="flex flex-1 flex-col bg-white pt-1 lg:min-h-full">
       {/* The header in one line once its title is gone (H75). */}
       <CompactBar
         shown={compact}
@@ -638,13 +633,6 @@ export function SplashPage({
                 initialsOf={faces}
                 data={{ 'data-page-author': authorIds[0] }}
               />
-            ) : null
-          }
-          // Everyone in it, once someone else has added theirs (H75); on a
-          // page of one the top row's face already says it.
-          byline={
-            authorIds.length > 1 ? (
-              <SplashAuthors ids={authorIds} label="In this page" initialsOf={faces} />
             ) : null
           }
           place={
@@ -767,17 +755,28 @@ export function SplashPage({
                 authorId: block.author_id ?? undefined,
                 removed: block.author_id === null,
                 dot: dotOn(block),
+                // Whose, when, and on All where it was written, on the note's
+                // first line as a reply says it (H80, twelfth pass).
+                meta:
+                  block.author_id === null ? undefined : (
+                    <NoteByline
+                      authorId={block.author_id}
+                      at={block.created_at}
+                      where={block.author_id !== owner ? labelOf(block.thread_pool_id) : null}
+                    />
+                  ),
                 body: entryBody(block),
               }))}
             />
           )}
         </div>
+      </div>
 
-        {/* The add row: the seat of the next block, at the bottom where the
-          story continues (H75). */}
-        {/* Someone else's splash takes no words of mine (review), unless I
-          am invited on it in this pool (0035). */}
-        {(scope === 'theirs' && !sidePool) || orphan ? null : (
+      {/* The add row: the seat of the next block, pinned at the foot where the
+        story continues (H75, H80 twelfth pass). Someone else's splash takes
+        no words of mine (review), unless I am invited on it here (0035). */}
+      {(scope === 'theirs' && !sidePool) || orphan ? null : (
+        <PageFooter>
           <AddRow
             label={ownRecord ? 'Add to this page' : 'Add yours too'}
             me={pool?.me ?? me}
@@ -787,8 +786,8 @@ export function SplashPage({
             autoFocus={writing}
             onSubmit={(draft) => saveBlock({ kind: 'add', splashId: page.splash.id }, draft)}
           />
-        )}
-      </div>
+        </PageFooter>
+      )}
     </div>
   );
 }

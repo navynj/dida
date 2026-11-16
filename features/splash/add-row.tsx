@@ -111,11 +111,8 @@ export function AddRow({
   }
 
   return (
-    <div data-add-slot className="mt-2 pb-10">
-      {/* A flat hairline sets the add row apart (H78: the wave motif is retired). */}
-      <div data-add-rule className="py-3">
-        <div className="border-pool-200 border-t" />
-      </div>
+    // The page's footer draws its hairline, only while notes scroll under it (H80).
+    <div data-add-slot>
       <div
         ref={row}
         data-add-row

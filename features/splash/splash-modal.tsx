@@ -370,12 +370,9 @@ export function SplashModal({
               className={
                 fill
                   ? 'flex min-h-0 flex-1 flex-col'
-                  : 'no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 lg:px-8'
-              }
-              style={
-                fill
-                  ? undefined
-                  : { paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }
+                  : // A page's pinned footer (PageFooter) is its last row and
+                    // carries this padding itself, so it ends on the sheet's edge.
+                    'no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] has-[[data-page-footer]]:pb-0 lg:px-8'
               }
             >
               {leaving ? held : children}
