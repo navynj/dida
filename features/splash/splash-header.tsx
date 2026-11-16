@@ -31,11 +31,11 @@ export type HeaderEdit = {
 };
 
 /**
- * A post's header (SPEC 5), the composer's skeleton (H80, eighth pass): who
- * wrote it at the left of the top row, the share status and the quiet menu
- * (pin, Delete) at its right; the icon inline before the title at display
- * scale; the date as the card writes it with the category's chip at the
- * right. Under them, everyone in it once others have added theirs, and
+ * A post's header (SPEC 5), the composer's skeleton (H80, ninth pass): the
+ * date as the card writes it at the left of the top row, the share status
+ * and the quiet menu (pin, Delete) at its right; the icon inline before the
+ * title at display scale; the meta row, who wrote it at the left and the
+ * category's chip at the right. Under them, everyone in it once others have added theirs, and
  * where it sits in a pool (H75). Title, icon, declared date and declared
  * lane are edited in place.
  */
@@ -80,9 +80,9 @@ export function SplashHeader({
    * it is not mine to write.
    */
   description?: { shown: boolean; onToggle: () => void } | null;
-  /** Who wrote it, at the left of the top row. */
+  /** Who wrote it, at the left of the meta row. */
   author?: ReactNode;
-  /** Everyone in it, under the date row: only once others have added theirs. */
+  /** Everyone in it, under the meta row: only once others have added theirs. */
   byline?: ReactNode;
   /** Where it sits in a pool ("Pool · 🏕 lane"), on its own line under the byline (H75). */
   place?: ReactNode;
@@ -116,12 +116,62 @@ export function SplashHeader({
 
   return (
     <header data-splash-header className="flex flex-col gap-2 pb-6">
-      {/* The composer's skeleton (H80, eighth pass): who wrote it at the
-          left, where the draft has nothing; the share status and the menu at
-          the right, as they were. */}
+      {/* The composer's skeleton (H80, ninth pass): the date as the card
+          writes it at the left, edited in place; the share status and the
+          menu at the right, as they were. */}
       <div data-splash-top-row className="flex min-h-7 items-center justify-between gap-3">
-        <div data-splash-owner className="min-w-0 flex-1">
-          {author}
+        <div data-splash-date className="min-w-0 flex-1">
+          {editLevel === 'none' ? (
+            displayRange ? (
+              <span data-range className={DATE_WORDS}>
+                {cardRange(displayRange)}
+              </span>
+            ) : (
+              <span />
+            )
+          ) : editingDate ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+              {/* The drop sheet's own date control (H24: a date is changed, never removed). */}
+              <AnnotationControl
+                annotation={{
+                  date: range?.start ?? today,
+                  time: null,
+                  endDate: range?.end ?? null,
+                  endTime: null,
+                }}
+                today={today}
+                onChange={(next) => next && setRange({ start: next.date, end: next.endDate })}
+                clock={false}
+                removable={false}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const next = range ?? { start: today, end: null };
+                  setRange(next);
+                  setEditingDate(false);
+                  run(() =>
+                    onEdit(header({ declaredStart: next.start, declaredEnd: oneDay(next) })),
+                  );
+                }}
+                className="text-main-900 font-medium"
+              >
+                Done
+              </button>
+            </div>
+          ) : displayRange ? (
+            <button
+              type="button"
+              aria-label="Edit the declared date"
+              data-range
+              onClick={() => setEditingDate(true)}
+              className={`${DATE_WORDS} text-left`}
+            >
+              {cardRange(displayRange)}
+            </button>
+          ) : (
+            <QuietAffordance onClick={() => setEditingDate(true)} label="+ Add Date" />
+          )}
         </div>
 
         {audience}
@@ -208,59 +258,13 @@ export function SplashHeader({
         </div>
       </div>
 
-      {/* The date as the card writes it at the left, the category's chip at
-          the right (the draft card's header row); each edited in place. */}
-      <div data-splash-date-row className="flex items-start justify-between gap-3">
-        {editLevel === 'none' ? (
-          displayRange ? (
-            <span data-range className={DATE_WORDS}>
-              {cardRange(displayRange)}
-            </span>
-          ) : (
-            <span />
-          )
-        ) : editingDate ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
-            {/* The drop sheet's own date control (H24: a date is changed, never removed). */}
-            <AnnotationControl
-              annotation={{
-                date: range?.start ?? today,
-                time: null,
-                endDate: range?.end ?? null,
-                endTime: null,
-              }}
-              today={today}
-              onChange={(next) => next && setRange({ start: next.date, end: next.endDate })}
-              clock={false}
-              removable={false}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const next = range ?? { start: today, end: null };
-                setRange(next);
-                setEditingDate(false);
-                run(() => onEdit(header({ declaredStart: next.start, declaredEnd: oneDay(next) })));
-              }}
-              className="text-main-900 font-medium"
-            >
-              Done
-            </button>
-          </div>
-        ) : displayRange ? (
-          <button
-            type="button"
-            aria-label="Edit the declared date"
-            data-range
-            onClick={() => setEditingDate(true)}
-            className={`${DATE_WORDS} text-left`}
-          >
-            {cardRange(displayRange)}
-          </button>
-        ) : (
-          <QuietAffordance onClick={() => setEditingDate(true)} label="+ Add Date" />
-        )}
-
+      {/* The meta row (H80, ninth pass): who wrote it at the left, the
+          category's outline chip at the right, edited in place; the
+          category's chips open under the row. */}
+      <div data-splash-meta-row className="flex items-center justify-between gap-3">
+        <div data-splash-owner className="min-w-0 flex-1">
+          {author}
+        </div>
         {/* The post's lane (H24): every block takes it. Tapping it edits it. */}
         {editLevel !== 'all' ? (
           <span

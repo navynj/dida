@@ -205,7 +205,7 @@ describe('the white page above the water (SPEC 5, H21c)', () => {
     expect(container.querySelector('[data-splash-title]')!.textContent).toBe(
       'Whistler, two nights',
     );
-    // The date as the card writes it (H80, eighth pass).
+    // The date as the card writes it (H80, eighth and ninth passes).
     expect(container.querySelector('[data-range]')!.textContent).toBe('Aug 17 – Aug 20');
     // No wave under the title (H78).
     expect(container.querySelector('[data-wave-underline], [data-wave-rule]')).toBeNull();
@@ -230,17 +230,17 @@ describe('the white page above the water (SPEC 5, H21c)', () => {
       </PeopleProvider>,
     );
     const header = container.querySelector('[data-splash-header]')!;
-    // The author at the left of the top row (H80, eighth pass); alone in it,
-    // no list under the date.
+    // The author at the left of the meta row (H80, ninth pass); alone in it,
+    // no list under it.
     expect(
       header
-        .querySelector('[data-splash-top-row] [data-page-author]')
+        .querySelector('[data-splash-meta-row] [data-page-author]')
         ?.getAttribute('data-page-author'),
     ).toBe('a1');
     expect(header.querySelector('[data-splash-authors]')).toBeNull();
-    // The pool and its lane on a line of their own after the date row (H75).
+    // The pool and its lane on a line of their own after the meta row (H75).
     const byline = header.querySelector('[data-splash-byline]')!;
-    const date = header.querySelector('[data-splash-date-row]')!;
+    const date = header.querySelector('[data-splash-meta-row]')!;
     expect(date.compareDocumentPosition(byline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(byline.querySelector('[data-origin-tag]')?.textContent).toBe('Our Pool · 🎲 Games');
     expect(container.querySelectorAll('[data-origin-tags]')).toHaveLength(1);
@@ -320,7 +320,7 @@ describe('the white page above the water (SPEC 5, H21c)', () => {
         </InputSheetProvider>
       </PeopleProvider>,
     );
-    // Once, on the top row (H80, eighth pass): no list under the date.
+    // Once, on the meta row (H80, ninth pass): no list under it.
     expect(container.querySelectorAll('[data-page-author]')).toHaveLength(1);
     expect(container.querySelectorAll('[data-splash-author]')).toHaveLength(0);
     // The initials appear once on the page: on the top row, not again by a block.
@@ -726,7 +726,7 @@ function wideScreen(): void {
   });
 }
 
-describe('the page header is the composer’s skeleton (H80, eighth pass)', () => {
+describe('the page header is the composer’s skeleton: date, title, meta (H80, ninth pass)', () => {
   const mine = (over: Partial<Parameters<typeof SplashPage>[0]> = {}) =>
     render(
       <PeopleProvider me="a1" people={{ a1: { name: 'Yoonji', photo: null } }}>
@@ -751,7 +751,7 @@ describe('the page header is the composer’s skeleton (H80, eighth pass)', () =
     ['phone', () => {}],
     ['wide', wideScreen],
   ] as const) {
-    it(`on a ${width}: author, share status and menu; icon and title; date and category`, () => {
+    it(`on a ${width}: date, share status and menu; icon and title; author and category`, () => {
       set();
       const { container } = mine();
       const header = container.querySelector('[data-splash-header]')!;
@@ -759,18 +759,22 @@ describe('the page header is the composer’s skeleton (H80, eighth pass)', () =
         [
           'data-splash-top-row',
           'data-splash-title-row',
-          'data-splash-date-row',
+          'data-splash-meta-row',
           'data-splash-byline',
         ].find((a) => row.hasAttribute(a)),
       );
       expect(rows).toEqual([
         'data-splash-top-row',
         'data-splash-title-row',
-        'data-splash-date-row',
+        'data-splash-meta-row',
       ]);
 
+      // The date at the left as the card writes it, edited in place; the
+      // share status and the menu at the right, as they were.
       const top = header.querySelector('[data-splash-top-row]')!;
-      expect(top.children[0].querySelector('[data-page-author]')!.textContent).toContain('Yoonji');
+      const date = top.children[0].querySelector('[data-range]')!;
+      expect(date.getAttribute('aria-label')).toBe('Edit the declared date');
+      expect(date.textContent).toBe('Aug 17 – Aug 20');
       expect(top.children[1].hasAttribute('data-audience-chip')).toBe(true);
       expect(within(top.children[2] as HTMLElement).getByLabelText('More')).toBeTruthy();
 
@@ -785,13 +789,14 @@ describe('the page header is the composer’s skeleton (H80, eighth pass)', () =
         Node.DOCUMENT_POSITION_FOLLOWING,
       );
 
-      // The date at the left as the card writes it, the category at the right.
-      const date = header.querySelector('[data-splash-date-row]')!;
-      expect(date.className).toContain('justify-between');
-      expect(date.firstElementChild!.getAttribute('aria-label')).toBe('Edit the declared date');
-      expect(date.firstElementChild!.textContent).toBe('Aug 17 – Aug 20');
-      expect(date.lastElementChild!.getAttribute('aria-label')).toBe('Edit the declared category');
-      // Nothing of the old header left: no dotted date, no author under it.
+      // The meta row: who wrote it at the left, the category at the right.
+      const meta = header.querySelector('[data-splash-meta-row]')!;
+      expect(meta.className).toContain('justify-between');
+      expect(meta.firstElementChild!.querySelector('[data-page-author]')!.textContent).toContain(
+        'Yoonji',
+      );
+      expect(meta.lastElementChild!.getAttribute('aria-label')).toBe('Edit the declared category');
+      // Nothing of the old header left: no dotted date.
       expect(header.textContent).not.toMatch(/2026\./);
     });
   }
@@ -803,11 +808,11 @@ describe('the page header is the composer’s skeleton (H80, eighth pass)', () =
     expect(container.querySelector('[data-range]')!.textContent).toBe('Aug 17 (MON)');
   });
 
-  it('opens the category chips under the date row, and keeps the date’s own editor', () => {
+  it('opens the category chips under the meta row, and keeps the date’s own editor', () => {
     const { container, getByLabelText } = mine();
     fireEvent.click(getByLabelText('Edit the declared category'));
     const picker = container.querySelector('[data-lane-picker]')!;
-    const date = container.querySelector('[data-splash-date-row]')!;
+    const date = container.querySelector('[data-splash-meta-row]')!;
     expect(date.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(getByLabelText('Edit the declared date'));
     expect((getByLabelText('Date') as HTMLInputElement).value).toBe('2026-08-17');
@@ -829,10 +834,10 @@ describe('the page header is the composer’s skeleton (H80, eighth pass)', () =
     const header = container.querySelector('[data-splash-header]')!;
     expect(header.querySelector('[data-splash-top-row]')).not.toBeNull();
     expect(header.querySelector('[data-splash-icon]')!.textContent).toBe('🏔');
-    expect(header.querySelector('[data-splash-date-row] [data-range]')!.textContent).toBe(
+    expect(header.querySelector('[data-splash-top-row] [data-range]')!.textContent).toBe(
       'Aug 17 – Aug 20',
     );
-    expect(header.querySelector('[data-splash-date-row] [data-lane-tags]')!.textContent).toBe(
+    expect(header.querySelector('[data-splash-meta-row] [data-lane-tags]')!.textContent).toBe(
       '🎲Games',
     );
     expect(queryByLabelText('Edit the title')).toBeNull();

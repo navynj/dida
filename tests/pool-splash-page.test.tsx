@@ -173,21 +173,21 @@ describe('adding yours, not replying (H75)', () => {
   });
 });
 
-describe('who wrote it: the top row, then everyone in it (H80, eighth pass)', () => {
+describe('who wrote it: the meta row, then everyone in it (H80, ninth pass)', () => {
   const authors = (view: ReturnType<typeof page>) =>
     [...view.container.querySelectorAll('[data-splash-side] [data-splash-author]')].map((a) =>
       a.getAttribute('data-splash-author'),
     );
   const top = (view: ReturnType<typeof page>) =>
     view.container
-      .querySelector('[data-splash-top-row] [data-page-author]')
+      .querySelector('[data-splash-meta-row] [data-page-author]')
       ?.getAttribute('data-page-author');
 
-  it('puts the author at the left of the top row, before the share status and the menu', () => {
+  it('puts the author at the left of the meta row, the category at its right', () => {
     const view = page(BLOCKS);
-    const row = view.container.querySelector('[data-splash-top-row]')!;
+    const row = view.container.querySelector('[data-splash-meta-row]')!;
     expect(row.firstElementChild!.hasAttribute('data-splash-owner')).toBe(true);
-    expect(row.lastElementChild!.querySelector('[aria-label="More"]')).not.toBeNull();
+    expect(row.lastElementChild!.hasAttribute('data-lane-tags')).toBe(true);
     expect(top(view)).toBe(MINA);
   });
 
@@ -209,7 +209,7 @@ describe('who wrote it: the top row, then everyone in it (H80, eighth pass)', ()
     expect(top(view)).toBe(MINA);
     // After the date row, everyone in it, the owner first.
     expect(authors(view)).toEqual([MINA, ME]);
-    const date = view.container.querySelector('[data-splash-date-row]')!;
+    const date = view.container.querySelector('[data-splash-meta-row]')!;
     const list = view.container.querySelector('[data-splash-authors]')!;
     expect(date.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(view.container.querySelector('[data-splash-authors-label]')!.textContent).toBe(
