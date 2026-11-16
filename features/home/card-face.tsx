@@ -150,7 +150,14 @@ export function CardFace({
       data-card-title
       className={`flex min-w-0 shrink-0 items-center gap-1.5 ${
         ink === 'white' ? 'text-white' : 'text-main-900'
-      } ${edge === 'full' ? `${DETAIL_TITLE_CLASS} leading-tight` : 'text-sm/none font-semibold'}`}
+      } ${
+        edge !== 'full'
+          ? 'text-sm/none font-semibold'
+          : compact
+            ? // The phone's card (H80, eleventh pass): a step under the page's title, one line.
+              'text-2xl/tight font-semibold'
+            : `${DETAIL_TITLE_CLASS} leading-tight`
+      }`}
       style={ink === 'white' ? UP_WORDS : undefined}
     >
       {glyph ? (
@@ -193,7 +200,9 @@ export function CardFace({
     </span>
   );
   const author = card.authorId ?? me;
-  const metaRow = (
+  // The category's chip only where the card has room for it: on a phone the
+  // icon before the title already says it (H80, eleventh pass).
+  const metaRow = (chip: boolean) => (
     <span data-card-meta-row className="flex min-w-0 shrink-0 items-center justify-between gap-3">
       <span className="min-w-0 flex-1">
         {author ? (
@@ -206,7 +215,7 @@ export function CardFace({
           />
         ) : null}
       </span>
-      {lane ? <OutlineChip icon={lane.icon} name={lane.name} /> : null}
+      {chip && lane ? <OutlineChip icon={lane.icon} name={lane.name} /> : null}
     </span>
   );
   // Gone from its pool: said where the old place line said it.
@@ -244,7 +253,10 @@ export function CardFace({
         >
           {dateRow}
           {titleLine}
-          {metaRow}
+          {/* Only when it says something (H80, eleventh pass): someone else's
+            page, or one others wrote on. My own page of mine alone has none,
+            and its notes take the room. */}
+          {author !== me || !solo ? metaRow(false) : null}
           <span data-card-body className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <CardPreview card={card} signed={signed} />
             {fade}
@@ -275,7 +287,7 @@ export function CardFace({
       >
         {dateRow}
         {titleLine}
-        {metaRow}
+        {metaRow(true)}
         {gone ? (
           <span data-card-gone className="text-pool-500 text-[10px]/tight">
             No longer shared

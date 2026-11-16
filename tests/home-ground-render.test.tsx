@@ -600,7 +600,8 @@ describe('the diving board, a staircase', () => {
     const { container } = ground();
     const card = topCard(container);
     expect(card.querySelector('[data-card-compact]')).not.toBeNull();
-    // The page's skeleton (H80, tenth pass): date, title, meta, then the notes.
+    // The page's skeleton (H80, tenth and eleventh passes): date, title, then
+    // the notes; my own page of mine alone has no meta row on a phone.
     const compact = card.querySelector('[data-card-compact]')!;
     expect(
       [...compact.children]
@@ -610,7 +611,7 @@ describe('the diving board, a staircase', () => {
           ),
         )
         .filter(Boolean),
-    ).toEqual(['data-card-date-row', 'data-card-title', 'data-card-meta-row', 'data-card-body']);
+    ).toEqual(['data-card-date-row', 'data-card-title', 'data-card-body']);
     expect(card.querySelector('[data-card-title]')!.textContent).toContain('Toy Story 5');
     // The post's words, as the fixture's block carries them.
     expect(card.querySelector('[data-card-preview-text]')!.textContent).toBe('late 0');

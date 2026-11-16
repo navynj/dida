@@ -61,33 +61,78 @@ const rows = (c: HTMLElement) =>
   );
 
 describe('a card face is the page’s skeleton (H80, tenth pass)', () => {
-  for (const compact of [false, true]) {
-    const where = compact ? 'the phone’s top card' : 'a wide top card';
-    it(`on ${where}: date row, title row, meta row, then the notes`, () => {
-      const { container } = face({}, compact);
-      expect(rows(container)).toEqual([
-        'data-card-date-row',
-        'data-card-title',
-        'data-card-meta-row',
-        'data-card-body',
-      ]);
-      expect(container.querySelector('[data-card-date]')!.textContent).toBe('Oct 26 (MON)');
-      // Clear of the menu's `…` over the row's right end.
-      expect(container.querySelector('[data-card-date-row]')!.className).toContain('pr-8');
-      // The title keeps its icon inline and the card's size.
-      const title = container.querySelector('[data-card-title]')!;
-      expect(title.textContent).toBe('🎲Arnak league');
-      // The meta row: the author at the left, the category's outline chip at the right.
-      const meta = container.querySelector('[data-card-meta-row]')!;
-      expect(
-        meta.firstElementChild!.querySelector('[data-card-author="u-me"]')!.textContent,
-      ).toContain('Yoonji');
-      expect(meta.lastElementChild!.textContent).toBe('🎬Media');
-      expect(meta.lastElementChild!.className).toContain('h-5');
-      // Smaller than the sheet's: a 20px face, xs name.
-      expect(meta.querySelector('[data-card-author] span')!.className).toContain('h-5');
-    });
-  }
+  it('on a wide top card: date row, title row, meta row, then the notes', () => {
+    const { container } = face();
+    expect(rows(container)).toEqual([
+      'data-card-date-row',
+      'data-card-title',
+      'data-card-meta-row',
+      'data-card-body',
+    ]);
+    expect(container.querySelector('[data-card-date]')!.textContent).toBe('Oct 26 (MON)');
+    // Clear of the menu's `…` over the row's right end.
+    expect(container.querySelector('[data-card-date-row]')!.className).toContain('pr-8');
+    // The title keeps its icon inline and the page's size.
+    const title = container.querySelector('[data-card-title]')!;
+    expect(title.textContent).toBe('🎲Arnak league');
+    expect(title.className).toContain('text-3xl');
+    // The meta row: the author at the left, the category's outline chip at the right.
+    const meta = container.querySelector('[data-card-meta-row]')!;
+    expect(
+      meta.firstElementChild!.querySelector('[data-card-author="u-me"]')!.textContent,
+    ).toContain('Yoonji');
+    expect(meta.lastElementChild!.textContent).toBe('🎬Media');
+    expect(meta.lastElementChild!.className).toContain('h-5');
+    // Smaller than the sheet's: a 20px face, xs name.
+    expect(meta.querySelector('[data-card-author] span')!.className).toContain('h-5');
+  });
+
+  it('on the phone’s top card, my own page of mine alone: date, title, the notes; no meta row', () => {
+    const { container } = face({}, true);
+    expect(rows(container)).toEqual(['data-card-date-row', 'data-card-title', 'data-card-body']);
+    expect(container.querySelector('[data-card-date]')!.textContent).toBe('Oct 26 (MON)');
+    // A step under the page's title, one line, truncated; the icon says the category.
+    const title = container.querySelector('[data-card-title]')!;
+    expect(title.className).toContain('text-2xl');
+    expect(title.className).not.toContain('text-3xl');
+    expect(title.querySelector('.truncate')!.textContent).toBe('Arnak league');
+    expect(title.textContent).toContain('🎲');
+    expect(container.textContent).not.toContain('Media');
+  });
+
+  it('on the phone’s top card, someone else’s page: the meta row with its author, no chip', () => {
+    const { container } = face({ authorId: 'u-mina', author: 'MI', authorName: 'Mina' }, true);
+    expect(rows(container)).toEqual([
+      'data-card-date-row',
+      'data-card-title',
+      'data-card-meta-row',
+      'data-card-body',
+    ]);
+    const meta = container.querySelector('[data-card-meta-row]')!;
+    expect(meta.querySelector('[data-card-author="u-mina"]')!.textContent).toContain('Mina');
+    expect(meta.textContent).not.toContain('Media');
+  });
+
+  it('on the phone’s top card, my page with others’ notes: the meta row, no chip', () => {
+    const { container } = face(
+      {
+        ripples: [
+          { id: 'a', note: 'mine', createdAt: '2026-10-26T18:00:00Z' },
+          {
+            id: 'b',
+            note: 'theirs',
+            createdAt: '2026-10-26T19:00:00Z',
+            authorId: 'u-mina',
+            initials: 'MI',
+          },
+        ],
+      },
+      true,
+    );
+    const meta = container.querySelector('[data-card-meta-row]')!;
+    expect(meta.querySelector('[data-card-author="u-me"]')).not.toBeNull();
+    expect(meta.textContent).not.toContain('Media');
+  });
 
   it('writes a range as the page does', () => {
     const { container } = face({
