@@ -13,48 +13,6 @@ import type { IsoDate } from '@/lib/time';
 import { cardDate } from './grid';
 
 /**
- * A picker's panel over the card (H80): white, the soft shadow at most, no
- * outline; closed by a tap anywhere outside it. `picker-surface` gives the
- * chips inside their surface-1 fill back, which the filled card (H82) maps
- * to white.
- */
-export function Popover({
-  label,
-  onClose,
-  align,
-  side = 'below',
-  children,
-}: {
-  label: string;
-  onClose: () => void;
-  align: 'left' | 'right';
-  /** Under its control, or over it: the footer's controls open upward, into the card. */
-  side?: 'below' | 'above';
-  children: ReactNode;
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        aria-label="Close"
-        data-popover-close
-        onClick={onClose}
-        className="fixed inset-0 z-30 cursor-default"
-      />
-      <div
-        role="dialog"
-        aria-label={label}
-        className={`picker-surface absolute z-40 w-72 max-w-[calc(100vw-4rem)] rounded-xl bg-white p-3 shadow-lg ${
-          side === 'below' ? 'top-full mt-2' : 'bottom-full mb-2'
-        } ${align === 'left' ? 'left-0' : 'right-0'}`}
-      >
-        {children}
-      </div>
-    </>
-  );
-}
-
-/**
  * Opens a date input's own picker from a tap (H80): `showPicker()` where the
  * browser has it, else focus, which opens it on a phone. Called inside the
  * tap, the gesture `showPicker` needs.

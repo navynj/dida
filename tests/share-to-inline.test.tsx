@@ -226,22 +226,38 @@ describe('Share to on the draft card: the diaries on one line (H80, H75)', () =>
     }
   });
 
-  it.each([
-    ['a phone: a bottom sheet', false],
-    ['a wide screen: a popover', true],
-  ])('opens the picker on %s, the search field always on top', (_, wide) => {
-    media(wide);
+  it('opens the picker on a phone as a bottom sheet, the search field always on top', () => {
+    media(false);
     undo = layOut(210);
     const { container } = render(<Row pools={POOLS.slice(0, 3)} />);
     fireEvent.click(line(container).querySelector('[data-share-more]')!);
     const p = picker()!;
-    expect(p.closest('[data-sheet-frame]') === null).toBe(wide);
+    expect(p.closest('[data-sheet-frame]')).not.toBeNull();
     expect(p.closest('[role="dialog"]')).not.toBeNull();
     expect(p.firstElementChild!.querySelector('[aria-label="Search"]')).not.toBeNull();
     fireEvent.change(p.querySelector('[aria-label="Search"]')!, { target: { value: 'CR' } });
     expect(
       [...p.querySelectorAll('[data-share-pool]')].map((c) => c.getAttribute('data-share-pool')),
     ).toEqual(['p-crew']);
+  });
+
+  it('opens Audience’s popover on a wide screen: over the foot, a switch per diary, Escape back to +N', () => {
+    media(true);
+    undo = layOut(210);
+    const { container, getByRole } = render(<Row pools={POOLS.slice(0, 3)} />);
+    const more = line(container).querySelector<HTMLElement>('[data-share-more]')!;
+    fireEvent.click(more);
+    const pop = container.querySelector('[data-audience-popover]')!;
+    expect(pop.closest('[data-sheet-frame]')).toBeNull();
+    expect(pop.className).toContain('bottom-full');
+    expect(container.querySelector('[data-share-picker]')).toBeNull();
+    fireEvent.click(getByRole('switch', { name: 'Shared to Crew' }));
+    expect(JSON.parse(container.querySelector('[data-shared]')!.textContent!)).toEqual([
+      { poolId: 'p-crew', poolLaneId: 'cr-out' },
+    ]);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    expect(container.querySelector('[data-audience-popover]')).toBeNull();
+    expect(document.activeElement).toBe(more);
   });
 
   it('with no diary to share to, draws no row at all: no choice, no private marker (H78d)', () => {

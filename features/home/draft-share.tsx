@@ -6,11 +6,10 @@ import { CategoryChip } from '@/components/ui/chips/category-chip';
 import { useWide } from '@/components/ui/use-wide';
 import { PickerSearch } from '@/features/input-sheet/lane-chips';
 import { useStripPools } from '@/features/pool/activity';
+import { AudiencePopover } from '@/features/pool/audience-popover';
 import type { AudiencePool } from '@/features/pool/audience-sheet';
 import { SheetFrame } from '@/features/splash-sheet/sheet-frame';
 import { SharePoolChip, laneOf, type ShareProps } from '@/features/splash-sheet/share-to-row';
-
-import { Popover } from './draft-pickers';
 
 /** The gap between the line's chips, `gap-1.5`. */
 const GAP_PX = 6;
@@ -129,9 +128,21 @@ function SharePicker({
  * and H75's explicit private is said only where a diary could be chosen.
  */
 export function DraftShare(props: ShareProps) {
-  const { pools, shared, startLane, onTurn } = props;
+  const { pools, shared, startLane, onTurn, onPick } = props;
   // The picker, and the diary whose lanes it opens on.
-  const [open, setOpen] = useState<{ lanesOf: string | null } | null>(null);
+  const [open, setOpenState] = useState<{ lanesOf: string | null } | null>(null);
+  // What opened it, for focus to go back to (H75, wide): +N, or a lane chip.
+  const trigger = useRef<HTMLElement | null>(null);
+  const share = useRef<HTMLDivElement>(null);
+  const setOpen = (next: { lanesOf: string | null } | null): void => {
+    if (next) {
+      const at = document.activeElement;
+      trigger.current =
+        at instanceof HTMLElement && share.current?.contains(at) ? at : more.current;
+    }
+    setOpenState(next);
+  };
+  const more = useRef<HTMLButtonElement>(null);
   const wide = useWide();
   const photos = useStripPools();
   const line = useRef<HTMLDivElement>(null);
@@ -170,9 +181,9 @@ export function DraftShare(props: ShareProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  // Esc closes the picker alone, not the draft under it.
+  // Esc closes the picker alone, not the draft under it (the popover's own on a wide screen).
   useEffect(() => {
-    if (!open) return;
+    if (!open || wide) return;
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || event.isComposing) return;
       event.stopPropagation();
@@ -180,7 +191,7 @@ export function DraftShare(props: ShareProps) {
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [open]);
+  }, [open, wide]);
 
   if (pools.length === 0) return null;
   const photoOf = (id: string): string | null => photos.find((p) => p.id === id)?.photo ?? null;
@@ -201,7 +212,7 @@ export function DraftShare(props: ShareProps) {
   );
   const close = (): void => setOpen(null);
   return (
-    <div data-share-to className="relative flex min-w-0 items-center gap-2">
+    <div ref={share} data-share-to className="relative flex min-w-0 items-center gap-2">
       <span className="text-pool-500 shrink-0 text-xs">Share to</span>
       <div
         ref={line}
@@ -215,6 +226,7 @@ export function DraftShare(props: ShareProps) {
         ))}
         {shown < ordered.length ? (
           <button
+            ref={more}
             type="button"
             data-share-more
             aria-haspopup="dialog"
@@ -249,9 +261,23 @@ export function DraftShare(props: ShareProps) {
         </span>
       </div>
       {open && wide ? (
-        <Popover label="Share to" onClose={close} align="left" side="above">
-          <SharePicker {...props} lanesOf={open.lanesOf} />
-        </Popover>
+        // The one Audience picker on a wide screen (H75, wide): over the
+        // card's foot, so it opens upward.
+        <AudiencePopover
+          trigger={trigger}
+          onClose={close}
+          side="above"
+          align="left"
+          pools={pools}
+          shared={shared}
+          preselect={startLane}
+          locked={null}
+          onChange={(poolId, poolLaneId) => {
+            if (poolLaneId === null) onTurn(poolId, null);
+            else if (laneOf(shared, poolId)) onPick(poolId, poolLaneId);
+            else onTurn(poolId, poolLaneId);
+          }}
+        />
       ) : null}
       {open && !wide ? (
         <SheetFrame label="Share to" onClose={close} bodyClassName="picker-surface px-6 pt-6">
