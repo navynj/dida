@@ -16,7 +16,7 @@ import { discardingOnRefusal } from '@/features/input-sheet/media-field';
 import { deleteJointSplash } from '@/features/pool/actions';
 import { offerInstall } from '@/features/install/install-state';
 import { usePeople } from '@/features/people/people-provider';
-import { SplashAuthors } from './splash-authors';
+import { AuthorFace, SplashAuthors } from './splash-authors';
 import { inThread, latestFromOthers, type RippleResponsesValue } from '@/features/responses/model';
 import { RippleResponses, type ResponsesMode } from '@/features/responses/ripple-responses';
 import { ThreadLabel } from '@/features/responses/thread-label';
@@ -452,6 +452,11 @@ export function SplashPage({
       ...shown.flatMap((b) => (b.author_id ? [b.author_id] : [])),
     ]),
   ];
+  const faces: Record<string, string> = {
+    ...pool?.initialsOf,
+    ...initialsOf,
+    ...(me && initials ? { [me]: initials } : {}),
+  };
   // Every block shown is one person's, and that person the record's own:
   // read as a single post, not a thread of one (testers).
   const solo =
@@ -532,7 +537,6 @@ export function SplashPage({
                   : null
               }
               timeZone={timeZone}
-              today={today}
               onEdit={
                 editable(block)
                   ? () =>
@@ -625,16 +629,23 @@ export function SplashPage({
           canDelete={canDelete}
           laneChip={pool ? pool.laneChip : undefined}
           description={descriptionMenu}
+          // Who wrote it, at the top row's left (H80, eighth pass): the
+          // owner, or a joint record's first writer.
+          author={
+            authorIds[0] ? (
+              <AuthorFace
+                id={authorIds[0]}
+                initialsOf={faces}
+                data={{ 'data-page-author': authorIds[0] }}
+              />
+            ) : null
+          }
+          // Everyone in it, once someone else has added theirs (H75); on a
+          // page of one the top row's face already says it.
           byline={
-            <SplashAuthors
-              ids={authorIds}
-              label="In this page"
-              initialsOf={{
-                ...pool?.initialsOf,
-                ...initialsOf,
-                ...(me && initials ? { [me]: initials } : {}),
-              }}
-            />
+            authorIds.length > 1 ? (
+              <SplashAuthors ids={authorIds} label="In this page" initialsOf={faces} />
+            ) : null
           }
           place={
             // With tabs, the tabs and the Audience chip say where it is (H75);

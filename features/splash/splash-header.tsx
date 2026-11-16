@@ -9,11 +9,17 @@ import { EmojiInput } from '@/features/lanes/emoji-input';
 import type { MyCategory } from '@/lib/queries/profile';
 import type { IsoDate } from '@/lib/time';
 
+import { cardDate } from '@/features/home/grid';
+
+import { shortDay } from './block';
 import { HeaderMenu } from './header-menu';
-import { formatRange, type DateRange, type SplashSummary } from './summary';
+import type { DateRange, SplashSummary } from './summary';
 
 /** The title's size and weight on a post's page; the top card on Home reads at the same (review). */
 export const DETAIL_TITLE_CLASS = 'text-3xl font-semibold';
+
+/** The date's words, the draft card's (H80): the accent, small, medium. */
+const DATE_WORDS = 'text-main-900 text-sm font-medium tabular-nums';
 
 export type HeaderEdit = {
   title: string;
@@ -25,11 +31,13 @@ export type HeaderEdit = {
 };
 
 /**
- * A post's header (SPEC 5, H21): lane tags (declared first), the title at
- * display scale, a wave underline sized to the block count, the range small
- * below, and under it the byline: who wrote it (2026-10-29), and on a line
- * of its own under that, where it sits in a pool (H75). Title, declared date and declared lane are edited in place; pin
- * and Delete live in the quiet menu at the right.
+ * A post's header (SPEC 5), the composer's skeleton (H80, eighth pass): who
+ * wrote it at the left of the top row, the share status and the quiet menu
+ * (pin, Delete) at its right; the icon inline before the title at display
+ * scale; the date as the card writes it with the category's chip at the
+ * right. Under them, everyone in it once others have added theirs, and
+ * where it sits in a pool (H75). Title, icon, declared date and declared
+ * lane are edited in place.
  */
 export function SplashHeader({
   splash,
@@ -44,6 +52,7 @@ export function SplashHeader({
   canDelete = true,
   laneChip = undefined,
   description = null,
+  author = null,
   byline = null,
   place = null,
 }: {
@@ -71,7 +80,9 @@ export function SplashHeader({
    * it is not mine to write.
    */
   description?: { shown: boolean; onToggle: () => void } | null;
-  /** Who wrote it, under the date. */
+  /** Who wrote it, at the left of the top row. */
+  author?: ReactNode;
+  /** Everyone in it, under the date row: only once others have added theirs. */
   byline?: ReactNode;
   /** Where it sits in a pool ("Pool · 🏕 lane"), on its own line under the byline (H75). */
   place?: ReactNode;
@@ -105,51 +116,13 @@ export function SplashHeader({
 
   return (
     <header data-splash-header className="flex flex-col gap-2 pb-6">
-      <div className="flex items-start justify-between gap-3">
-        {/* The post's lane (H24): every block takes it. Tapping it edits it. */}
-        {editLevel !== 'all' ? (
-          <span data-lane-tags className="flex min-h-5 min-w-0 flex-1 flex-wrap items-center gap-1">
-            {laneChip ? (
-              <OutlineChip icon={laneChip.icon} name={laneChip.name} />
-            ) : (
-              tags.map((lane) => <OutlineChip key={lane.id} icon={lane.icon} name={lane.name} />)
-            )}
-          </span>
-        ) : editingLane ? (
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <LaneChips
-              categories={categories}
-              selectedId={splash.declaredLaneId}
-              surface="white"
-              onSelect={(id) => {
-                setEditingLane(false);
-                run(() => onEdit(header({ declaredLaneId: id })));
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setEditingLane(false)}
-              className="text-pool-500 self-start text-xs"
-            >
-              Done
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            aria-label="Edit the declared category"
-            data-lane-tags
-            onClick={() => setEditingLane(true)}
-            className="flex min-h-5 min-w-0 flex-1 flex-wrap items-center gap-1"
-          >
-            {tags.map((lane) => (
-              <OutlineChip key={lane.id} icon={lane.icon} name={lane.name} />
-            ))}
-            {tags.length === 0 ? (
-              <span className="text-pool-500 text-[10px]">+ Category</span>
-            ) : null}
-          </button>
-        )}
+      {/* The composer's skeleton (H80, eighth pass): who wrote it at the
+          left, where the draft has nothing; the share status and the menu at
+          the right, as they were. */}
+      <div data-splash-top-row className="flex min-h-7 items-center justify-between gap-3">
+        <div data-splash-owner className="min-w-0 flex-1">
+          {author}
+        </div>
 
         {audience}
 
@@ -165,12 +138,13 @@ export function SplashHeader({
       </div>
 
       {/* The title, edited where it is read; the compact bar shows once it is gone (H75). */}
-      <div data-splash-title-row className="flex items-start gap-3">
-        {/* The post's own icon, edited in place (0008): one glyph, saved as it
-          is chosen; emptied, the lane's emoji stands for the post again. */}
+      <div data-splash-title-row className="flex items-start gap-1.5">
+        {/* The post's own icon inline before the title at its size, as the
+          composer has it (0008): one glyph, saved as it is chosen; emptied,
+          the lane's emoji stands for the post again. */}
         {editLevel === 'none' ? (
           splash.icon ? (
-            <span aria-hidden className="text-3xl/none">
+            <span aria-hidden data-splash-icon className="shrink-0 text-3xl/9">
               {splash.icon}
             </span>
           ) : null
@@ -183,6 +157,7 @@ export function SplashHeader({
             }}
             label="Icon"
             placeholder={categories.find((c) => c.id === splash.laneIds[0])?.icon ?? '🙂'}
+            className="h-9 w-10 shrink-0 bg-transparent text-center text-3xl/9"
           />
         )}
         <div className="min-w-0 flex-1">
@@ -233,65 +208,128 @@ export function SplashHeader({
         </div>
       </div>
 
-      {/* The range: declared (its own to edit), else derived from the blocks. */}
-      {editLevel === 'none' ? (
-        displayRange ? (
-          <span data-range className="text-pool-500 text-xs tabular-nums">
-            {formatRange(displayRange)}
+      {/* The date as the card writes it at the left, the category's chip at
+          the right (the draft card's header row); each edited in place. */}
+      <div data-splash-date-row className="flex items-start justify-between gap-3">
+        {editLevel === 'none' ? (
+          displayRange ? (
+            <span data-range className={DATE_WORDS}>
+              {cardRange(displayRange)}
+            </span>
+          ) : (
+            <span />
+          )
+        ) : editingDate ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+            {/* The drop sheet's own date control (H24: a date is changed, never removed). */}
+            <AnnotationControl
+              annotation={{
+                date: range?.start ?? today,
+                time: null,
+                endDate: range?.end ?? null,
+                endTime: null,
+              }}
+              today={today}
+              onChange={(next) => next && setRange({ start: next.date, end: next.endDate })}
+              clock={false}
+              removable={false}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const next = range ?? { start: today, end: null };
+                setRange(next);
+                setEditingDate(false);
+                run(() => onEdit(header({ declaredStart: next.start, declaredEnd: oneDay(next) })));
+              }}
+              className="text-main-900 font-medium"
+            >
+              Done
+            </button>
+          </div>
+        ) : displayRange ? (
+          <button
+            type="button"
+            aria-label="Edit the declared date"
+            data-range
+            onClick={() => setEditingDate(true)}
+            className={`${DATE_WORDS} text-left`}
+          >
+            {cardRange(displayRange)}
+          </button>
+        ) : (
+          <QuietAffordance onClick={() => setEditingDate(true)} label="+ Add Date" />
+        )}
+
+        {/* The post's lane (H24): every block takes it. Tapping it edits it. */}
+        {editLevel !== 'all' ? (
+          <span
+            data-lane-tags
+            className="flex min-h-5 min-w-0 flex-wrap items-center justify-end gap-1"
+          >
+            {laneChip ? (
+              <OutlineChip icon={laneChip.icon} name={laneChip.name} />
+            ) : (
+              tags.map((lane) => <OutlineChip key={lane.id} icon={lane.icon} name={lane.name} />)
+            )}
           </span>
-        ) : null
-      ) : editingDate ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {/* The drop sheet's own date control (H24: a date is changed, never removed). */}
-          <AnnotationControl
-            annotation={{
-              date: range?.start ?? today,
-              time: null,
-              endDate: range?.end ?? null,
-              endTime: null,
+        ) : editingLane ? null : (
+          <button
+            type="button"
+            aria-label="Edit the declared category"
+            data-lane-tags
+            onClick={() => setEditingLane(true)}
+            className="flex min-h-5 min-w-0 flex-wrap items-center justify-end gap-1"
+          >
+            {tags.map((lane) => (
+              <OutlineChip key={lane.id} icon={lane.icon} name={lane.name} />
+            ))}
+            {tags.length === 0 ? (
+              <span className="text-pool-500 text-[10px]">+ Category</span>
+            ) : null}
+          </button>
+        )}
+      </div>
+
+      {editLevel === 'all' && editingLane ? (
+        // The chips open under the row, full width, as the draft's picker.
+        <div data-lane-picker className="flex min-w-0 flex-col gap-2">
+          <LaneChips
+            categories={categories}
+            selectedId={splash.declaredLaneId}
+            surface="white"
+            onSelect={(id) => {
+              setEditingLane(false);
+              run(() => onEdit(header({ declaredLaneId: id })));
             }}
-            today={today}
-            onChange={(next) => next && setRange({ start: next.date, end: next.endDate })}
-            clock={false}
-            removable={false}
           />
           <button
             type="button"
-            onClick={() => {
-              const next = range ?? { start: today, end: null };
-              setRange(next);
-              setEditingDate(false);
-              run(() => onEdit(header({ declaredStart: next.start, declaredEnd: oneDay(next) })));
-            }}
-            className="text-main-900 font-medium"
+            onClick={() => setEditingLane(false)}
+            className="text-pool-500 self-start text-xs"
           >
             Done
           </button>
         </div>
-      ) : displayRange ? (
-        <button
-          type="button"
-          aria-label="Edit the declared date"
-          data-range
-          onClick={() => setEditingDate(true)}
-          className="text-pool-500 text-left text-xs tabular-nums"
-        >
-          {formatRange(displayRange)}
-        </button>
-      ) : (
-        <QuietAffordance onClick={() => setEditingDate(true)} label="+ Add Date" />
-      )}
+      ) : null}
 
       {byline || place ? (
-        // The pool tags on a line of their own under the byline, so a name
-        // is never cut short beside them (H75).
+        // Everyone in it once others have added theirs (H75), then where it
+        // sits in a pool on a line of its own, so a name is never cut short.
         <div data-splash-byline className="flex flex-col gap-1.5 pt-1">
-          <div className="min-w-0">{byline}</div>
+          {byline ? <div className="min-w-0">{byline}</div> : null}
           {place ? <div className="min-w-0">{place}</div> : null}
         </div>
       ) : null}
     </header>
   );
+}
+
+/** The date as the card writes it (H80): "Oct 2 (FRI)", a range "Nov 14 – Nov 16". */
+export function cardRange(range: DateRange): string {
+  return range.end > range.start
+    ? `${shortDay(range.start)} – ${shortDay(range.end)}`
+    : cardDate(range.start);
 }
 
 /** A range's end, or none when it ends on its start's day: a one-day post stores no end. */

@@ -3,8 +3,7 @@
 import { VideoPlayer } from '@/components/ui/video-media';
 import { videosIn } from '@/lib/youtube';
 import { DurationChip } from '@/components/ui/chips/duration-chip';
-import { annotationLabel, draftFrom } from '@/features/input-sheet/draft';
-import { dayOf } from '@/lib/flow-key';
+import { draftFrom } from '@/features/input-sheet/draft';
 import type { RippleWithSplash } from '@/lib/queries/ripples';
 import { rippleDurationMinutes, rippleKind } from '@/lib/ripple-kind';
 import { mediaMetaOf } from '@/lib/ripple-media';
@@ -31,7 +30,6 @@ export function BlockView({
   range = null,
   photos: signedPhotos,
   timeZone,
-  today,
   onEdit,
   clock = null,
 }: {
@@ -40,7 +38,6 @@ export function BlockView({
   range?: DateRange | null;
   photos: (string | null)[];
   timeZone: string;
-  today: IsoDate;
   /** Absent: read-only — another member's ripple in a pool (review). */
   onEdit?: () => void;
   /** In a pool (0013): when it was written, mine, and the author's when our zones differ. */
@@ -54,30 +51,37 @@ export function BlockView({
   const meta = mediaMetaOf(block.media_meta);
   const sizeAt = (index: number) =>
     photos.length === block.media.length ? meta[block.media[index]] : undefined;
-  // Inside a range, its day and nothing else (0031); elsewhere what an older
-  // block carries, frozen (H24), read back as it was.
+  // Inside a range, its day and nothing else (0031, H42g). On a one-day page
+  // the day is the page's own, said once in its header (H80, eighth pass):
+  // only the clock an older block carries, frozen (H24), is read back.
   const label = isRange(range)
     ? shortDay(blockDay(block.occurred_on, range)!)
-    : annotation
-      ? annotation.time || annotation.endDate
-        ? `${shortDay(annotation.date)} · ${annotationLabel(annotation, today)}`
-        : shortDay(annotation.date)
-      : shortDay(dayOf(block, timeZone));
+    : annotation?.time
+      ? annotation.endTime && (annotation.endDate ?? annotation.date) === annotation.date
+        ? `${annotation.time} ~ ${annotation.endTime}`
+        : annotation.time
+      : null;
+  const timed = kind === 'timed';
 
   const body = (
     <>
-      <span className="text-pool-500 flex items-center gap-2 text-[11px] tabular-nums">
-        <span data-block-date>{label}</span>
-        {clock ? <span data-block-clock>· {clock.mine}</span> : null}
-        {clock?.theirs ? (
-          <span data-author-clock className="opacity-70">
-            · {clock.theirs}
-          </span>
-        ) : null}
-        {kind === 'timed' ? (
-          <DurationChip minutes={rippleDurationMinutes(block, timeZone)} />
-        ) : null}
-      </span>
+      {label || clock || timed ? (
+        <span className="text-pool-500 flex items-center gap-2 text-[11px] tabular-nums">
+          {label ? <span data-block-date>{label}</span> : null}
+          {clock ? (
+            <span data-block-clock>
+              {label ? '· ' : ''}
+              {clock.mine}
+            </span>
+          ) : null}
+          {clock?.theirs ? (
+            <span data-author-clock className="opacity-70">
+              · {clock.theirs}
+            </span>
+          ) : null}
+          {timed ? <DurationChip minutes={rippleDurationMinutes(block, timeZone)} /> : null}
+        </span>
+      ) : null}
 
       {block.note ? (
         <p data-block-body className="text-ink text-[15px]/[1.65] whitespace-pre-wrap">

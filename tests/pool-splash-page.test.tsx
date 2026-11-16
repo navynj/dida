@@ -173,14 +173,28 @@ describe('adding yours, not replying (H75)', () => {
   });
 });
 
-describe('who wrote it, at the top of the left column', () => {
+describe('who wrote it: the top row, then everyone in it (H80, eighth pass)', () => {
   const authors = (view: ReturnType<typeof page>) =>
     [...view.container.querySelectorAll('[data-splash-side] [data-splash-author]')].map((a) =>
       a.getAttribute('data-splash-author'),
     );
+  const top = (view: ReturnType<typeof page>) =>
+    view.container
+      .querySelector('[data-splash-top-row] [data-page-author]')
+      ?.getAttribute('data-page-author');
+
+  it('puts the author at the left of the top row, before the share status and the menu', () => {
+    const view = page(BLOCKS);
+    const row = view.container.querySelector('[data-splash-top-row]')!;
+    expect(row.firstElementChild!.hasAttribute('data-splash-owner')).toBe(true);
+    expect(row.lastElementChild!.querySelector('[aria-label="More"]')).not.toBeNull();
+    expect(top(view)).toBe(MINA);
+  });
 
   it('names a joint record’s writers in the order of their first block, never a removed part', () => {
-    expect(authors(page([...BLOCKS, ripple('r-gone', null, null)]))).toEqual([MINA, ME]);
+    const view = page([...BLOCKS, ripple('r-gone', null, null)]);
+    expect(top(view)).toBe(MINA);
+    expect(authors(view)).toEqual([MINA, ME]);
   });
 
   it('names someone’s record by its owner first, then everyone in it (H75)', () => {
@@ -192,7 +206,12 @@ describe('who wrote it, at the top of the left column', () => {
       ...POOL,
       scope: 'theirs',
     });
+    expect(top(view)).toBe(MINA);
+    // After the date row, everyone in it, the owner first.
     expect(authors(view)).toEqual([MINA, ME]);
+    const date = view.container.querySelector('[data-splash-date-row]')!;
+    const list = view.container.querySelector('[data-splash-authors]')!;
+    expect(date.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(view.container.querySelector('[data-splash-authors-label]')!.textContent).toBe(
       'In this page',
     );
@@ -200,9 +219,10 @@ describe('who wrote it, at the top of the left column', () => {
 
   it('names me on my own', () => {
     const view = page([ripple('r-me', ME, 'mine')], { ...POOL, scope: 'mine' });
-    expect(authors(view)).toEqual([ME]);
-    // Alone in it: no label, so it reads as the solo post it is.
-    expect(view.container.querySelector('[data-splash-authors-label]')).toBeNull();
+    expect(top(view)).toBe(ME);
+    // Alone in it: the top row says it; no list under the date.
+    expect(authors(view)).toEqual([]);
+    expect(view.container.querySelector('[data-splash-authors]')).toBeNull();
   });
 });
 
