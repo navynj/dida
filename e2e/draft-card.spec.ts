@@ -136,26 +136,34 @@ test('compose writes on the stack (wide) or the page sheet (phone); Save seats i
     await expect(top).toHaveAttribute('data-stack-card', id);
   }
 
-  // `…` ends the icon-and-title row, as on the finished card; no row of its own.
-  await expect(draft.locator('[data-draft-title-row] [data-compose-more]')).toBeVisible();
+  // The page's skeleton (H80, ninth pass): `…` ends the date's row.
+  await expect(draft.locator('[data-draft-header] [data-compose-more]')).toBeVisible();
   await expect(draft.locator('[data-draft-top]')).toHaveCount(0);
   // No diary to share to: no Share to row at all, no private marker (H78d).
   await expect(draft.locator('[data-share-to]')).toHaveCount(0);
   await expect(draft).not.toContainText('Only you can see this');
   await draft.locator('[aria-label="Content"]').fill('the tide was out');
-  // The category picker: a search field always, filtering the chips as typed.
-  await draft.locator('[data-draft-category]').click();
-  const picker = page.locator('[role="dialog"][aria-label="Category"]');
-  await expect(picker).toBeVisible();
-  const chips = picker.locator('[role="group"][aria-label="Category"]');
+  // The category row: every category on one line, searched in place.
+  const chips = draft.locator('[data-category-line]');
   await expect(chips).toContainText('Walks');
   await expect(chips).toContainText('Reading');
-  await picker.getByPlaceholder('Search categories').fill('wal');
+  await draft.getByRole('button', { name: 'Search categories' }).click();
+  const search = draft.getByRole('textbox', { name: 'Search categories' });
+  await expect(search).toBeFocused();
+  await search.fill('wal');
   await expect(chips).toContainText('Walks');
   await expect(chips).not.toContainText('Reading');
   await chips.getByRole('button', { name: /Walks/ }).click();
-  await expect(picker).toHaveCount(0);
-  await expect(draft.locator('[data-draft-category]')).toContainText('Walks');
+  await search.press('Escape');
+  // The search closed, the choice kept and first; the draft still open.
+  await expect(search).toHaveCount(0);
+  await expect(draft).toBeVisible();
+  await expect(chips.locator('[data-pick-category]').first()).toContainText('Walks');
+  await expect(chips.locator('[data-pick-category]').first()).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.locator('[role="dialog"][aria-label="Category"]')).toHaveCount(0);
 
   // Seven days back: between middle (5) and far (10). One tap on the date
   // opens its picker itself, no panel between; the day is then chosen there.

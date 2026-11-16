@@ -153,8 +153,18 @@ test('a lane’s page composes in the post sheet’s frame on a wide screen, the
   }).toPass({ timeout: 60_000 });
   await expect(page.locator('[data-splash-modal]')).toHaveCount(0);
   const draft = sheet.locator('[data-draft-card]');
-  await expect(draft.locator('[data-draft-category]')).toHaveText('+ Category');
+  await expect(draft.locator('[data-category-line]')).toBeVisible();
   await expect(draft.locator('[data-draft-save]')).toBeInViewport();
+  // Wide, the same row searched in place: no popover.
+  await draft.getByRole('button', { name: 'Search categories' }).click();
+  await draft.getByRole('textbox', { name: 'Search categories' }).fill('da');
+  await expect(draft.locator('[data-category-line] [data-pick-category]')).toHaveCount(1);
+  await expect(page.locator('[role="dialog"][aria-label="Category"]')).toHaveCount(0);
+  if (process.env.SHOT_DIR) {
+    await page.screenshot({ path: `${process.env.SHOT_DIR}/category-search-desktop.png` });
+  }
+  await draft.getByRole('textbox', { name: 'Search categories' }).press('Escape');
+  await expect(sheet).toBeVisible();
   await draft.getByLabel('Content').fill('a walk');
   await page
     .locator('[data-sheet-frame] > button[aria-label="Close"]')
@@ -189,17 +199,18 @@ for (const ground of GROUNDS) {
     await expect(sheet.locator('[data-sheet-handle]')).toBeVisible();
     await expect(page.locator('[data-stack] [data-draft-card]')).toHaveCount(0);
     const draft = sheet.locator('[data-draft-card]');
-    // The draft card's order: title row, date and category, content, then the foot.
+    // The page's order (H80, ninth pass): date, title, category row, content, the foot.
     const tops = await Promise.all(
       [
-        '[data-draft-title-row]',
         '[data-draft-header]',
+        '[data-draft-title-row]',
+        '[data-draft-category-row]',
         '[aria-label="Content"]',
         '[data-draft-footer]',
       ].map(async (selector) => (await draft.locator(selector).first().boundingBox())!.y),
     );
     expect([...tops].sort((a, b) => a - b)).toEqual(tops);
-    await expect(draft.locator('[data-draft-category]')).toHaveText('+ Category');
+    await expect(draft.locator('[data-draft-category]')).toHaveCount(0);
 
     // Content far taller than the room, then the keyboard.
     const body = draft.getByLabel('Content');
@@ -226,6 +237,28 @@ for (const ground of GROUNDS) {
     if (process.env.SHOT_DIR) {
       await page.screenshot({ path: `${process.env.SHOT_DIR}/compose-${ground.name}-phone.png` });
     }
+
+    // Searching categories with the keyboard up (H80, ninth pass): the row
+    // turns into a field in place, above the keyboard, filtering the line.
+    await draft.getByRole('button', { name: 'Search categories' }).click();
+    const search = draft.getByRole('textbox', { name: 'Search categories' });
+    await expect(search).toBeFocused();
+    await search.fill('da');
+    await frames(page);
+    const row = (await draft.locator('[data-draft-category-row]').boundingBox())!;
+    expect(row.y).toBeGreaterThanOrEqual(TOP_GAP_PX);
+    expect(row.y + row.height).toBeLessThanOrEqual(844 - KEYBOARD_PX);
+    await expect(draft.locator('[data-category-line] [data-pick-category]')).toHaveCount(1);
+    await expect(page.locator('[role="dialog"][aria-label="Category"]')).toHaveCount(0);
+    if (process.env.SHOT_DIR) {
+      await page.screenshot({
+        path: `${process.env.SHOT_DIR}/category-search-${ground.name}-phone.png`,
+      });
+    }
+    await search.press('Escape');
+    await expect(search).toHaveCount(0);
+    await expect(sheet).toBeVisible();
+    await expect(draft.locator('[data-draft-confirm]')).toHaveCount(0);
 
     // Written: the dimmed screen asks, Keep writing keeps it.
     await page
