@@ -362,55 +362,111 @@ for (const count of [1, 2, 6]) {
       await shot('line');
 
       let turnedOn: string[];
-      if (count < 6) {
-        // From the line itself: "+ name" turns it on, ink, first.
+      let room = await page.evaluate(() => window.visualViewport!.height);
+      if (phone) {
+        if (count < 6) {
+          // From the line itself: "+ name" turns it on, ink, first.
+          turnedOn = names;
+          for (const name of turnedOn) {
+            await chips.filter({ hasText: name }).first().click();
+            // Turned on, it moves to the front: settled before the next tap.
+            await expect(
+              line.locator('[data-share-pool][data-on]', { hasText: name }),
+            ).toBeVisible();
+          }
+          await expect(line.locator('[data-share-pool][data-on]')).toHaveCount(count);
+          // The lane chip on the line opens the picker on that diary's lanes.
+          await line
+            .locator('[data-share-pool][data-on]', { hasText: 'test' })
+            .locator('[data-share-lane]')
+            .click();
+        } else {
+          // From the picker, through +N: search, then two turned on.
+          await more.click();
+          const picker = page.locator('[role="dialog"][aria-label="Share to"]');
+          await picker.getByPlaceholder('Search diaries').fill('cl');
+          await expect(picker.locator('[data-share-pool]')).toHaveCount(1);
+          await picker.getByPlaceholder('Search diaries').fill('');
+          turnedOn = ['Work friends', 'Family'];
+          for (const name of turnedOn) {
+            await picker.locator('[data-share-pool]', { hasText: name }).click();
+          }
+          await picker
+            .locator('[data-share-pool][data-on]', { hasText: 'Family' })
+            .locator('[data-share-lane]')
+            .click();
+        }
+        const picker = page.locator('[role="dialog"][aria-label="Share to"]');
+        await expect(picker).toBeVisible();
+        await expect(picker.getByPlaceholder('Search diaries')).toBeVisible();
+        const lanes = picker.locator('[data-share-lanes]');
+        await lanes.getByRole('button', { name: /Food/ }).click();
+        await expect(lanes).toHaveCount(0);
+        // Risen (sheet-rise), the picker ends on the keyboard, not under it.
+        room = await page.evaluate(() => window.visualViewport!.height);
+        await expect
+          .poll(async () => {
+            const box = (await picker.boundingBox())!;
+            return box.y + box.height <= room + 1;
+          })
+          .toBe(true);
+        await shot('picker');
+        // Esc closes the picker, not the draft.
+        await page.keyboard.press('Escape');
+        await expect(picker).toHaveCount(0);
+        await expect(draft).toBeVisible();
+      } else if (count < 6) {
+        // A wide screen (H75, wide): Audience's popover, the one picker there.
         turnedOn = names;
         for (const name of turnedOn) {
           await chips.filter({ hasText: name }).first().click();
-          // Turned on, it moves to the front: settled before the next tap.
           await expect(line.locator('[data-share-pool][data-on]', { hasText: name })).toBeVisible();
         }
-        await expect(line.locator('[data-share-pool][data-on]')).toHaveCount(count);
-        // The lane chip on the line opens the picker on that diary's lanes.
-        await line
+        const lane = line
           .locator('[data-share-pool][data-on]', { hasText: 'test' })
-          .locator('[data-share-lane]')
-          .click();
+          .locator('[data-share-lane]');
+        await lane.click();
+        const popover = page.locator('[data-audience-popover]');
+        await expect(popover).toBeVisible();
+        await expect(page.locator('[role="dialog"][aria-label="Share to"]')).toHaveCount(0);
+        const test_ = popover.locator('[data-audience-row]', { hasText: 'test' });
+        await test_.getByRole('button', { name: /Food/ }).click();
+        await expect(test_.getByRole('button', { name: /Food/ })).toHaveAttribute(
+          'aria-pressed',
+          'true',
+        );
+        await page.waitForTimeout(400);
+        await shot('picker');
+        await page.keyboard.press('Escape');
+        await expect(popover).toHaveCount(0);
+        await expect(draft).toBeVisible();
+        await expect(lane).toBeFocused();
       } else {
-        // From the picker, through +N: search, then two turned on.
+        // Through +N, Audience's popover: a switch per diary.
         await more.click();
-        const picker = page.locator('[role="dialog"][aria-label="Share to"]');
-        await picker.getByPlaceholder('Search diaries').fill('cl');
-        await expect(picker.locator('[data-share-pool]')).toHaveCount(1);
-        await picker.getByPlaceholder('Search diaries').fill('');
+        const popover = page.locator('[data-audience-popover]');
+        await expect(popover).toBeVisible();
+        await expect(popover.locator('[data-audience-row]')).toHaveCount(count);
         turnedOn = ['Work friends', 'Family'];
         for (const name of turnedOn) {
-          await picker.locator('[data-share-pool]', { hasText: name }).click();
+          await popover.getByRole('switch', { name: `Shared to ${name}` }).click();
         }
-        await picker
-          .locator('[data-share-pool][data-on]', { hasText: 'Family' })
-          .locator('[data-share-lane]')
-          .click();
+        const family = popover.locator('[data-audience-row]', { hasText: 'Family' });
+        await family.getByRole('button', { name: /Food/ }).click();
+        await expect(family.getByRole('button', { name: /Food/ })).toHaveAttribute(
+          'aria-pressed',
+          'true',
+        );
+        await expect(family.getByRole('switch', { name: 'Shared to Family' })).toHaveAttribute(
+          'aria-checked',
+          'true',
+        );
+        await page.waitForTimeout(400);
+        await shot('picker');
+        await page.keyboard.press('Escape');
+        await expect(popover).toHaveCount(0);
+        await expect(draft).toBeVisible();
       }
-      const picker = page.locator('[role="dialog"][aria-label="Share to"]');
-      await expect(picker).toBeVisible();
-      await expect(picker.getByPlaceholder('Search diaries')).toBeVisible();
-      const lanes = picker.locator('[data-share-lanes]');
-      await lanes.getByRole('button', { name: /Food/ }).click();
-      await expect(lanes).toHaveCount(0);
-      // Risen (sheet-rise), the picker ends on the keyboard, not under it.
-      const room = await page.evaluate(() => window.visualViewport!.height);
-      await expect
-        .poll(async () => {
-          const box = (await picker.boundingBox())!;
-          return box.y + box.height <= room + 1;
-        })
-        .toBe(true);
-      await shot('picker');
-      // Esc closes the picker, not the draft.
-      await page.keyboard.press('Escape');
-      await expect(picker).toHaveCount(0);
-      await expect(draft).toBeVisible();
 
       // What is on comes first on the line, in ink, never behind +N.
       const on = turnedOn.length;
