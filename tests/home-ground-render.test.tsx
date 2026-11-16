@@ -1398,20 +1398,25 @@ describe('the draft card (H80)', () => {
       const id = await compose(container);
       expect(topCard(container).getAttribute('data-stack-card')).toBe(id);
       const draft = draftOf(container)!;
-      // No row of its own for `…`: it ends the icon-and-title row, as on the card.
+      // The page's skeleton (H80, ninth pass): the date with `…` at the end
+      // of its row; then the icon and the title; then the category row.
       expect(draft.querySelector('[data-draft-top]')).toBeNull();
+      const header = draft.querySelector('[data-draft-header]')!;
+      expect(header.firstElementChild!.querySelector('[data-draft-date]')).not.toBeNull();
+      expect(header.lastElementChild!.hasAttribute('data-compose-top')).toBe(true);
       const titleRow = draft.querySelector('[data-draft-title-row]')!;
+      expect(
+        header.compareDocumentPosition(titleRow) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       expect(titleRow.querySelector('[data-emoji-input]')).not.toBeNull();
       expect(titleRow.querySelector('[aria-label="Title"]')).not.toBeNull();
-      expect(titleRow.lastElementChild!.querySelector('[data-compose-more]')).not.toBeNull();
-      expect(titleRow.querySelector('[data-draft-cancel], [data-draft-save]')).toBeNull();
-      // Then the date line at the left and the category chip at the right.
-      const header = draft.querySelector('[data-draft-header]')!;
+      expect(titleRow.querySelector('[data-compose-more]')).toBeNull();
+      const row = draft.querySelector('[data-draft-category-row]')!;
+      expect(titleRow.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(
-        titleRow.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
+        row.compareDocumentPosition(draft.querySelector('[aria-label="Content"]')!) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
-      expect(header.firstElementChild!.querySelector('[data-draft-date]')).not.toBeNull();
-      expect(header.lastElementChild!.querySelector('[data-draft-category]')).not.toBeNull();
       // Cancel and Save at the bottom, Cancel first; one Save.
       const footer = draft.querySelector('[data-draft-footer]')!;
       const cancel = footer.querySelector('[data-draft-cancel]')!;
@@ -1428,7 +1433,9 @@ describe('the draft card (H80)', () => {
       expect(save.className).toContain('flex-1');
       // The header as the finished card writes it.
       expect(draft.querySelector('[data-draft-date]')!.textContent).toBe('Sep 25 (FRI)');
-      expect(draft.querySelector('[data-draft-category]')!.textContent).toBe('+ Category');
+      // No + Category: every category is on the row (H80, ninth pass).
+      expect(draft.querySelector('[data-draft-category]')).toBeNull();
+      expect(draft.textContent).not.toContain('+ Category');
       const title = draft.querySelector<HTMLTextAreaElement>('[aria-label="Title"]')!;
       expect(title.getAttribute('placeholder')).toBe('Title (optional)');
       expect(title.className).toContain('text-3xl');
@@ -1483,23 +1490,16 @@ describe('the draft card (H80)', () => {
       fireEvent.click(draft.querySelector('[data-draft-remove-end]')!);
       expect(draft.querySelector('[data-draft-end]')).toBeNull();
       expect(draft.querySelector('[data-draft-date]')!.textContent).toBe('Sep 25 (FRI)');
-      // The category: a search field always, chips on rows that it filters.
-      fireEvent.click(draft.querySelector('[data-draft-category]')!);
-      const search = document.querySelector<HTMLInputElement>(
-        'input[placeholder="Search categories"]',
-      )!;
-      expect(search).not.toBeNull();
-      const group = document.querySelector('[role="group"][aria-label="Category"]')!;
-      expect(group.className).toContain('flex-wrap');
-      const lane = LANES[0];
-      const other = LANES[1];
-      fireEvent.change(search, { target: { value: lane.name.slice(0, 3) } });
-      expect(group.textContent).toContain(lane.name);
-      expect(group.textContent).not.toContain(other.name);
-      fireEvent.click(
-        [...group.querySelectorAll('button')].find((b) => b.textContent?.includes(lane.name))!,
-      );
-      expect(draft.querySelector('[data-draft-category]')!.textContent).toContain(lane.name);
+      // The category: picked on the row itself, no popover; the choice
+      // moves to the front, filled.
+      const group = draft.querySelector('[data-category-line]')!;
+      expect(group.className).not.toContain('flex-wrap');
+      expect(group.className).toContain('overflow-x-auto');
+      const lane = LANES[1];
+      fireEvent.click(group.querySelector(`[data-pick-category="${lane.id}"]`)!);
+      expect(document.querySelector('[role="dialog"][aria-label="Category"]')).toBeNull();
+      expect(group.firstElementChild!.getAttribute('data-pick-category')).toBe(lane.id);
+      expect(group.firstElementChild!.getAttribute('aria-pressed')).toBe('true');
       // The ring sits on the draft's day.
       await ringed(container, id);
     } finally {
@@ -1654,15 +1654,21 @@ describe('compose on a phone: the page sheet (H80)', () => {
     expect(card.querySelector('[data-draft-title-row] [aria-label="Icon"]')).not.toBeNull();
     expect(card.querySelector('[data-draft-title-row] [aria-label="Title"]')).not.toBeNull();
     expect(card.querySelector('[data-draft-header] [data-draft-date]')).not.toBeNull();
-    expect(card.querySelector('[data-draft-header] [data-draft-category]')!.textContent).toBe(
-      '+ Category',
-    );
+    expect(card.querySelector('[data-draft-header] [data-compose-more]')).not.toBeNull();
     const content = card.querySelector('[aria-label="Content"]')!;
     const footer = card.querySelector('[data-draft-footer]')!;
-    expect(
-      card.querySelector('[data-draft-header]')!.compareDocumentPosition(content) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    // Date, title, category row, content: the page's order.
+    const order = [
+      '[data-draft-header]',
+      '[data-draft-title-row]',
+      '[data-draft-category-row]',
+      '[aria-label="Content"]',
+    ].map((s) => card.querySelector(s)!);
+    for (let k = 1; k < order.length; k += 1) {
+      expect(
+        order[k - 1].compareDocumentPosition(order[k]) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
     expect(content.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(footer.querySelector('[data-draft-cancel]')).not.toBeNull();
     expect(footer.querySelector('[data-draft-save]')).not.toBeNull();

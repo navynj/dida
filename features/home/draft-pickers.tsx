@@ -1,19 +1,13 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
-import { useWide } from '@/components/ui/use-wide';
 import type { Annotation } from '@/features/input-sheet/draft';
-import { LaneChips } from '@/features/input-sheet/lane-chips';
-import { PoolLanePicker } from '@/features/pool/pool-lane-picker';
-import { followHomeLane } from '@/features/pool/share-draft';
 import { shortDay } from '@/features/splash/block';
 import { DayChip } from '@/features/splash/day-chip';
 import { isRange } from '@/features/splash/block-day';
-import { SheetFrame } from '@/features/splash-sheet/sheet-frame';
 import type { Composer } from '@/features/splash-sheet/use-composer';
-import type { AudiencePool } from '@/features/pool/audience-sheet';
 import type { IsoDate } from '@/lib/time';
 
 import { cardDate } from './grid';
@@ -213,87 +207,6 @@ export function DraftDate({ composer: c, today }: { composer: Composer; today: I
           First note on
           <DayChip range={c.draftRange} value={c.firstDay} onChange={c.setChosenDay} />
         </label>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * The draft's category as the finished card shows it (H80): one outline
- * chip at the top right, "+ Category" with none. A tap opens the picker — a
- * popover on a wide screen, a bottom sheet on a phone: a search field on
- * top that filters as you type, then the chips wrapping onto rows; from a
- * pool, its lanes and Together (H23, 0033).
- */
-export function DraftCategory({
-  composer: c,
-  pools,
-}: {
-  composer: Composer;
-  pools: AudiencePool[];
-}) {
-  const [open, setOpen] = useState(false);
-  const wide = useWide();
-  const { categories, pool } = c;
-  const chosen = pool
-    ? pool.lanes.find((l) => l.id === c.pick?.poolLaneId)
-    : categories.find((cat) => cat.id === c.laneId);
-  const picker = pool ? (
-    <PoolLanePicker
-      scope={pool}
-      pick={c.pick}
-      onPick={c.setPick}
-      together={c.together}
-      onTogether={c.setTogether}
-    />
-  ) : (
-    <LaneChips
-      categories={categories}
-      selectedId={c.laneId}
-      onSelect={(id) => {
-        c.setLaneId(id);
-        // Auto pools follow to a lane of the same name, else stay (H75).
-        const name = categories.find((cat) => cat.id === id)?.name ?? null;
-        c.setShare((draft) => followHomeLane(draft, name, pools));
-        setOpen(false);
-      }}
-      surface="white"
-      search="always"
-      wrap
-    />
-  );
-  return (
-    <div className="relative shrink-0">
-      <button
-        type="button"
-        data-draft-category
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((was) => !was)}
-        className="border-pool-100 text-pool-500 inline-flex h-6 items-center gap-1 rounded-full border bg-white px-2.5 text-xs"
-      >
-        {chosen ? (
-          <>
-            {chosen.icon ? <span aria-hidden>{chosen.icon}</span> : null}
-            {chosen.name}
-          </>
-        ) : (
-          '+ Category'
-        )}
-      </button>
-      {open && wide ? (
-        <Popover label="Category" onClose={() => setOpen(false)} align="right">
-          {picker}
-        </Popover>
-      ) : null}
-      {open && !wide ? (
-        <SheetFrame
-          label="Category"
-          onClose={() => setOpen(false)}
-          bodyClassName="picker-surface px-6 pt-6"
-        >
-          {picker}
-        </SheetFrame>
       ) : null}
     </div>
   );

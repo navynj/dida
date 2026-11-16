@@ -35,6 +35,7 @@ export function PoolLanePicker({
   fixedEveryone = false,
   togetherLocked = null,
   withTogether = true,
+  lanes = true,
 }: {
   scope: PoolScope;
   pick: PoolPick;
@@ -52,6 +53,8 @@ export function PoolLanePicker({
    * (Yoonji, in the session; H45 retires conversion).
    */
   withTogether?: boolean;
+  /** The lane chips; off where the composer's category row already shows them (H80). */
+  lanes?: boolean;
 }) {
   const { me } = usePeople();
   const others = scope.members.filter((m) => m.id !== me);
@@ -66,27 +69,29 @@ export function PoolLanePicker({
 
   return (
     <div data-pool-lane-picker className="flex flex-col gap-3">
-      <div className="no-scrollbar flex gap-2 overflow-x-auto">
-        {scope.lanes.map((lane) => {
-          const selected = pick?.poolLaneId === lane.id;
-          return (
-            <button
-              key={lane.id}
-              type="button"
-              aria-pressed={selected}
-              data-pick-pool-lane={lane.id}
-              onClick={() => onPick(selected ? null : resolvePick(lane.id, picked, everyone))}
-              className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold ${
-                // Selection is ink (H20f); the chips are the one fill here.
-                selected ? 'bg-ink text-white' : 'border-pool-200 text-ink border'
-              }`}
-            >
-              {lane.icon ? `${lane.icon} ` : ''}
-              {lane.name}
-            </button>
-          );
-        })}
-      </div>
+      {lanes ? (
+        <div className="no-scrollbar flex gap-2 overflow-x-auto">
+          {scope.lanes.map((lane) => {
+            const selected = pick?.poolLaneId === lane.id;
+            return (
+              <button
+                key={lane.id}
+                type="button"
+                aria-pressed={selected}
+                data-pick-pool-lane={lane.id}
+                onClick={() => onPick(selected ? null : resolvePick(lane.id, picked, everyone))}
+                className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold ${
+                  // Selection is ink (H20f); the chips are the one fill here.
+                  selected ? 'bg-ink text-white' : 'border-pool-200 text-ink border'
+                }`}
+              >
+                {lane.icon ? `${lane.icon} ` : ''}
+                {lane.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       {/* Even alone in a pool, Everyone is a choice (Yoonji, in the session). */}
       {withTogether ? (
         <div data-together className="flex flex-col gap-2">

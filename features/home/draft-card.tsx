@@ -13,7 +13,8 @@ import type { IsoDate } from '@/lib/time';
 import { DETAIL_TITLE_CLASS } from '@/features/splash/splash-header';
 
 import { DraftImages } from './draft-images';
-import { DraftCategory, DraftDate } from './draft-pickers';
+import { DraftCategoryRow } from './draft-category-row';
+import { DraftDate } from './draft-pickers';
 import { DraftShare } from './draft-share';
 import type { StackDraft } from './stack-draft';
 
@@ -38,10 +39,10 @@ function isComposing(event: React.KeyboardEvent): boolean {
 /**
  * The draft card (H80): a new page written where it will live, as the top
  * card of the stack, already in edit mode — and already looking like the
- * card it becomes (`CardFace`). Top to bottom: the icon inline before the
- * title, at the title's size, with `…` at the end of that row; the date
- * line in the card's own style and the category as the card's one chip;
- * the body, filling the card and scrolling inside it; and pinned to the
+ * card it becomes (`CardFace`). Top to bottom, the page's own skeleton (H80,
+ * ninth pass): the date in the card's style with `…` at the end of its row;
+ * the icon inline before the title, at the title's size; the category row,
+ * every category on one sideways line with a search in place; the body, filling the card and scrolling inside it; and pinned to the
  * bottom, above the keyboard, the image row and Share to's one summary row
  * (it opens the diaries' picker), then Cancel and a Save that takes the rest
  * of the row.
@@ -135,10 +136,19 @@ export function DraftCard({
       aria-label="New page"
       className="text-ink relative flex h-full flex-col"
     >
-      {/* The header as the finished card has it (CardFace): the icon and the
-          title, `…` at the end of the same row (the description, 0037); then
-          the date line and the category's chip. */}
-      <div data-draft-title-row className="flex shrink-0 items-center gap-1.5 pt-3 pr-3 pl-5">
+      {/* The page's skeleton (H80, ninth pass): the date first, `…` at the
+          end of its row (the description, 0037); then the icon and the
+          title; then the category row; then the content. */}
+      <div
+        data-draft-header
+        className="flex shrink-0 items-start justify-between gap-3 pt-3 pr-3 pl-5"
+      >
+        <div className="pt-1.5">
+          <DraftDate composer={c} today={context.today} />
+        </div>
+        <ComposeTop describing={c.describing} onDescribing={c.setDescribing} />
+      </div>
+      <div data-draft-title-row className="flex shrink-0 items-center gap-1.5 pr-3 pl-5">
         <EmojiInput
           value={c.icon}
           onChange={c.setIcon}
@@ -166,17 +176,8 @@ export function DraftCard({
           data-sheet-title
           className={`${DETAIL_TITLE_CLASS} text-main-900 placeholder:text-main-900 min-w-0 flex-1 resize-none overflow-hidden leading-tight outline-none placeholder:opacity-30`}
         />
-        <div className="shrink-0 self-start">
-          <ComposeTop describing={c.describing} onDescribing={c.setDescribing} />
-        </div>
       </div>
-      <div
-        data-draft-header
-        className="flex shrink-0 items-start justify-between gap-3 px-5 pt-1.5"
-      >
-        <DraftDate composer={c} today={context.today} />
-        <DraftCategory composer={c} pools={pools} />
-      </div>
+      <DraftCategoryRow composer={c} pools={pools} />
       {draft.error ? (
         <p role="alert" data-draft-error className="text-pool-500 shrink-0 px-5 pt-1 text-sm">
           {draft.error}
