@@ -152,7 +152,7 @@ describe('a card face is the page’s skeleton (H80, tenth pass)', () => {
     const chip = container.querySelector('[data-card-date-row] [data-card-diary-chip]')!;
     expect(chip.querySelector('.truncate')!.textContent).toBe('Our Pool');
     expect(chip.querySelector('[data-monogram]')).not.toBeNull();
-    expect(chip.className).toContain('border-pool-200');
+    expect(chip.className).toContain('border-(--surface-3)');
     expect(chip.className).not.toMatch(/bg-(ink|\(--accent)/);
   });
 

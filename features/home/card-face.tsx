@@ -383,7 +383,7 @@ function CardDiaryChip({ pools }: { pools: { name: string; photo: string | null 
   return (
     <span
       data-card-diary-chip
-      className="border-pool-200 text-pool-500 inline-flex h-5 max-w-[11rem] shrink-0 items-center gap-1 rounded-full border px-1.5 text-[10px]"
+      className="text-pool-500 inline-flex h-5 max-w-[11rem] shrink-0 items-center gap-1 rounded-full border border-(--surface-3) px-1.5 text-[10px]"
     >
       {one ? (
         <>

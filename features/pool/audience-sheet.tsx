@@ -131,13 +131,14 @@ export function AudienceChip({
         aria-expanded={open}
         onClick={() => setOpen((was) => !was)}
         // In the composer, as Share to's chip (H78m): ink when shared,
-        // surface-1 when not. On a record, an outline (H80).
+        // surface-1 when not. On a record, an outline a step lighter than
+        // the hairline, surface-3 (H80): a chip, not a rule.
         data-outline={outline && on.length > 0 ? '' : undefined}
         className={`inline-flex max-w-[12rem] shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
           on.length === 0
             ? 'bg-pool-100 hover:text-ink text-(--text-inactive)'
             : outline
-              ? 'border-pool-200 text-pool-500 hover:text-ink border bg-transparent py-[3px]'
+              ? 'text-pool-500 hover:text-ink border border-(--surface-3) bg-transparent py-[3px]'
               : 'bg-ink text-white'
         }`}
       >
