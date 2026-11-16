@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { Users } from 'lucide-react';
 
 import { OutlineChip } from '@/components/ui/chips/category-chip';
 import { splashHref } from '@/features/home/scope';
 import { RippleThread } from '@/features/splash/ripple-thread';
-import { DETAIL_TITLE_CLASS } from '@/features/splash/splash-header';
+import { cardRange, DETAIL_TITLE_CLASS } from '@/features/splash/splash-header';
+import { AuthorFace } from '@/features/splash/splash-authors';
 import { Monogram } from '@/components/ui/monogram';
 import { useSignedPhotos } from '@/features/month-board/use-board-photos';
 import { usePeople } from '@/features/people/people-provider';
@@ -16,7 +18,7 @@ import { useRippleResponses } from '@/features/responses/use-ripple-responses';
 
 import { CardPhotos } from './card-photos';
 import { CardPreview, CardResponseLine } from './card-preview';
-import { cardDate, postIcon, type Card, type CardLane, type CardPhoto } from './grid';
+import { cardDate, postIcon, shownPools, type Card, type CardLane, type CardPhoto } from './grid';
 import { LinkedText } from '@/components/ui/linked-text';
 import { DEFAULT_THEME, themeHex } from '@/lib/theme';
 
@@ -148,7 +150,7 @@ export function CardFace({
       data-card-title
       className={`flex min-w-0 shrink-0 items-center gap-1.5 ${
         ink === 'white' ? 'text-white' : 'text-main-900'
-      } ${edge === 'full' ? `${DETAIL_TITLE_CLASS} pr-8 leading-tight` : 'text-sm/none font-semibold'}`}
+      } ${edge === 'full' ? `${DETAIL_TITLE_CLASS} leading-tight` : 'text-sm/none font-semibold'}`}
       style={ink === 'white' ? UP_WORDS : undefined}
     >
       {glyph ? (
@@ -173,6 +175,44 @@ export function CardFace({
   }
   const target = href ?? card.href ?? splashHref(card.splash.id);
   const respond = card.responded;
+  // The page's skeleton (H80, tenth pass): date row, title row, meta row,
+  // then the notes; the sheet a card opens reads as the card opened.
+  const range = card.splash.range;
+  const diaries = shownPools(card);
+  const dateRow = (
+    // Clear of the menu's `…`, which sits over this row's right end.
+    <span data-card-date-row className="flex min-w-0 shrink-0 items-center gap-2 pr-8">
+      <span
+        data-card-date
+        className="text-main-900 min-w-0 flex-1 truncate text-sm font-medium tabular-nums"
+      >
+        {range && range.end > range.start ? cardRange(range) : cardDate(card.day)}
+      </span>
+      {/* Where it is shared, the page's outline chip; private carries no marker (H78d). */}
+      {diaries.length > 0 ? <CardDiaryChip pools={diaries} /> : null}
+    </span>
+  );
+  const author = card.authorId ?? me;
+  const metaRow = (
+    <span data-card-meta-row className="flex min-w-0 shrink-0 items-center justify-between gap-3">
+      <span className="min-w-0 flex-1">
+        {author ? (
+          <AuthorFace
+            id={author}
+            initialsOf={{ [author]: card.author ?? initials }}
+            size="card"
+            fallback={card.authorName ?? 'Someone'}
+            data={{ 'data-card-author': author }}
+          />
+        ) : null}
+      </span>
+      {lane ? <OutlineChip icon={lane.icon} name={lane.name} /> : null}
+    </span>
+  );
+  // Gone from its pool: said where the old place line said it.
+  const gone = (card.origins ?? []).includes('No longer shared');
+  // Every note the author's: no avatar beside them, the face once on the meta row.
+  const solo = card.ripples.every((r) => !r.authorId || r.authorId === author);
   const fade = (
     <span
       aria-hidden
@@ -202,7 +242,9 @@ export function CardFace({
           className="pointer-events-none relative flex h-full flex-col gap-1.5 px-5"
           style={{ paddingTop: CARD_PAD_PX, paddingBottom: CARD_PAD_PX }}
         >
+          {dateRow}
           {titleLine}
+          {metaRow}
           <span data-card-body className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <CardPreview card={card} signed={signed} />
             {fade}
@@ -231,26 +273,12 @@ export function CardFace({
         className="pointer-events-none relative flex h-full flex-col gap-1.5 px-5"
         style={{ paddingTop: CARD_PAD_PX, paddingBottom: CARD_PAD_PX }}
       >
+        {dateRow}
         {titleLine}
-        <span className="flex items-start justify-between gap-3">
-          <span data-card-date className="text-main-900 text-sm font-medium tabular-nums">
-            {cardDate(card.day)}
-          </span>
-          <span className="flex shrink-0 items-center gap-1">
-            {/* Where the post is shared (H23): one monogram per pool. */}
-            {(card.pools ?? []).map((pool) => (
-              <Monogram key={pool} name={pool} size="chip" photo={card.poolPhoto ?? null} />
-            ))}
-            {lane ? <OutlineChip icon={lane.icon} name={lane.name} /> : null}
-          </span>
-        </span>
-        {card.origins && card.origins.length > 0 ? (
-          <span data-origin-tags className="text-pool-500 flex flex-wrap gap-x-3 text-[10px]/tight">
-            {card.origins.map((tag) => (
-              <span key={tag} data-origin-tag>
-                {tag}
-              </span>
-            ))}
+        {metaRow}
+        {gone ? (
+          <span data-card-gone className="text-pool-500 text-[10px]/tight">
+            No longer shared
           </span>
         ) : null}
         {card.sides && card.sides.length > 0 ? (
@@ -274,10 +302,12 @@ export function CardFace({
         ) : null}
         {/* Fixed height, no inner scroll: what does not fit fades out (review). */}
         <span data-card-body className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-          {/* Each ripple an entry of its own, threaded avatar to avatar (round 3). */}
+          {/* Each ripple an entry of its own, threaded avatar to avatar (round 3);
+            the author's alone, plain under the meta row's face. */}
           <RippleThread
             initials={card.author ?? initials}
             authorId={card.authorId ?? me}
+            plain={solo}
             entries={(card.ripples.length > 0
               ? card.ripples
               : [
@@ -327,6 +357,33 @@ export function CardFace({
           {fade}
         </span>
       </span>
+    </span>
+  );
+}
+
+/**
+ * Where a card is shared (H80, tenth pass): the page's outline chip at the
+ * card's size — one diary by its monogram and name, *N diaries* from two.
+ * Private draws nothing (H78d).
+ */
+function CardDiaryChip({ pools }: { pools: { name: string; photo: string | null }[] }) {
+  const one = pools.length === 1 ? pools[0] : null;
+  return (
+    <span
+      data-card-diary-chip
+      className="border-pool-200 text-pool-500 inline-flex h-5 max-w-[11rem] shrink-0 items-center gap-1 rounded-full border px-1.5 text-[10px]"
+    >
+      {one ? (
+        <>
+          <Monogram name={one.name} size="chip" photo={one.photo} />
+          <span className="truncate">{one.name}</span>
+        </>
+      ) : (
+        <>
+          <Users aria-hidden size={10} className="shrink-0 opacity-70" />
+          <span className="truncate">{pools.length} diaries</span>
+        </>
+      )}
     </span>
   );
 }

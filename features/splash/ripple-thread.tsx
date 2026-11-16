@@ -18,6 +18,7 @@ export function RippleThread({
   initials,
   authorId,
   className = '',
+  plain = false,
 }: {
   /** `initials` per entry in a pool, where each ripple keeps its author (H23). */
   entries: {
@@ -35,7 +36,31 @@ export function RippleThread({
   /** Whose face the entries without their own author show (0018): mine, on my own pages. */
   authorId?: string | null;
   className?: string;
+  /**
+   * One person's notes on a card (H80, tenth pass): each body under the
+   * last, no avatar and no line; the face is said once, on the meta row.
+   */
+  plain?: boolean;
 }) {
+  if (plain) {
+    return (
+      <ol data-ripple-thread data-plain className={`flex flex-col gap-3 ${className}`}>
+        {entries.map((entry) => (
+          <li key={entry.id} data-thread-entry={entry.id} className="relative min-w-0">
+            {entry.dot ? (
+              <span
+                aria-label="New reactions or replies"
+                data-responses-unseen
+                className="bg-main-900 absolute top-1 -left-3 h-2 w-2 rounded-full"
+              />
+            ) : null}
+            {entry.meta}
+            {entry.body}
+          </li>
+        ))}
+      </ol>
+    );
+  }
   return (
     <ol data-ripple-thread className={`flex flex-col ${className}`}>
       {entries.map((entry, index) => {

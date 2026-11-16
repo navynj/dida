@@ -51,14 +51,18 @@ describe('the origin tag (0015)', () => {
     expect(originTag('Our Pool', null, 'Games')).toBe('Our Pool · Games');
   });
 
-  it('shows on the card, one per pool', () => {
+  it('is not repeated on the card: its diary chip and meta row carry it (H80, tenth pass)', () => {
     const card = {
       ...placeCard(SUMMARY, 'words', 'UTC'),
       origins: ['Our Pool · 🎲 Games', 'Crew · 📍 Place'],
+      sharedPools: [
+        { name: 'Our Pool', photo: null },
+        { name: 'Crew', photo: null },
+      ],
     };
     const { container } = render(<CardFace card={card} lane={null} initials="YL" edge="full" />);
-    const tags = [...container.querySelectorAll('[data-origin-tag]')].map((t) => t.textContent);
-    expect(tags).toEqual(['Our Pool · 🎲 Games', 'Crew · 📍 Place']);
+    expect(container.querySelector('[data-origin-tag]')).toBeNull();
+    expect(container.querySelector('[data-card-diary-chip]')!.textContent).toBe('2 diaries');
   });
 });
 

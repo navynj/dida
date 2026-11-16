@@ -596,15 +596,26 @@ describe('the diving board, a staircase', () => {
     expect(behind.className).not.toContain('text-3xl');
   });
 
-  it('reads the top card on a phone as the title and the first lines, under the fade (H42f)', () => {
+  it('reads the top card on a phone as the page’s rows, then the first lines under the fade (H42f, H80)', () => {
     const { container } = ground();
     const card = topCard(container);
     expect(card.querySelector('[data-card-compact]')).not.toBeNull();
+    // The page's skeleton (H80, tenth pass): date, title, meta, then the notes.
+    const compact = card.querySelector('[data-card-compact]')!;
+    expect(
+      [...compact.children]
+        .map((el) =>
+          ['data-card-date-row', 'data-card-title', 'data-card-meta-row', 'data-card-body'].find(
+            (a) => el.hasAttribute(a),
+          ),
+        )
+        .filter(Boolean),
+    ).toEqual(['data-card-date-row', 'data-card-title', 'data-card-meta-row', 'data-card-body']);
     expect(card.querySelector('[data-card-title]')!.textContent).toContain('Toy Story 5');
     // The post's words, as the fixture's block carries them.
     expect(card.querySelector('[data-card-preview-text]')!.textContent).toBe('late 0');
-    // Nothing else between them: no date, chip, thread or replies.
-    expect(card.querySelector('[data-card-date], [data-ripple-thread]')).toBeNull();
+    // No thread or replies: the first lines alone.
+    expect(card.querySelector('[data-ripple-thread]')).toBeNull();
     const body = card.querySelector('[data-card-body]')!;
     expect(body.className).toContain('flex-1');
     expect(body.className).toContain('overflow-hidden');
@@ -1172,22 +1183,26 @@ describe('coming back from a post\u2019s page', () => {
 });
 
 describe('the top card\u2019s ripples as a thread (round 3)', () => {
-  it('gives each ripple its own avatar and draws one line fewer than ripples', () => {
+  it('reads one person’s ripples plain, each under the last: the face once, on the meta row (H80)', () => {
     wideScreen();
     const { container } = ground();
     fireEvent.click(container.querySelector('[data-board-pick=\"early\"]')!);
     return settled(container).then(() => {
       const thread = topCard(container).querySelector('[data-ripple-thread]')!;
-      expect(thread.querySelectorAll('[data-thread-avatar]')).toHaveLength(3);
-      expect(thread.querySelectorAll('[data-thread-line]')).toHaveLength(2);
+      expect(thread.hasAttribute('data-plain')).toBe(true);
+      expect(thread.querySelectorAll('[data-thread-entry]')).toHaveLength(3);
+      expect(thread.querySelectorAll('[data-thread-avatar], [data-thread-line]')).toHaveLength(0);
+      expect(
+        topCard(container).querySelectorAll('[data-card-meta-row] [data-card-author]'),
+      ).toHaveLength(1);
     });
   });
 
-  it('draws an avatar and no line for a single ripple', () => {
+  it('draws no lone avatar for a single ripple', () => {
     wideScreen();
     const { container } = ground();
     const thread = topCard(container).querySelector('[data-ripple-thread]')!;
-    expect(thread.querySelectorAll('[data-thread-avatar]')).toHaveLength(1);
+    expect(thread.querySelectorAll('[data-thread-avatar]')).toHaveLength(0);
     expect(thread.querySelectorAll('[data-thread-line]')).toHaveLength(0);
   });
 });
