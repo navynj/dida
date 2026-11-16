@@ -971,21 +971,34 @@ describe('a block read alone: its post is a joint splash of a pool I left (H23, 
 describe('my record’s sides, a tab per pool (0035)', () => {
   it('shows my ripples and the chosen pool’s members’, the off pool muted', () => {
     const theirs = [
-      block({ id: 'side-a', author_id: 'u-mina', note: 'from Crew', thread_pool_id: 'p-crew' }),
-      block({ id: 'side-b', author_id: 'u-jae', note: 'from Club', thread_pool_id: 'p-club' }),
+      block({
+        id: 'side-a',
+        author_id: 'u-mina',
+        note: 'from Crew',
+        thread_pool_id: 'p-crew',
+        created_at: '2026-08-19T10:00:00.000Z',
+      }),
+      block({
+        id: 'side-b',
+        author_id: 'u-jae',
+        note: 'from Club',
+        thread_pool_id: 'p-club',
+        created_at: '2026-08-19T09:00:00.000Z',
+      }),
     ];
     const { container, getByRole } = page({
       blocks: [...blocks, ...theirs],
       threads: [
-        { poolId: 'p-crew', label: 'Crew', count: 1, off: false },
-        { poolId: 'p-club', label: 'Club', count: 1, off: true },
-        { poolId: 'p-quiet', label: 'Pancake', count: 0, off: false },
+        { poolId: 'p-club', label: 'Club', off: true },
+        { poolId: 'p-quiet', label: 'Pancake', off: false },
+        { poolId: 'p-crew', label: 'Crew', off: false },
       ],
       initialsOf: { 'u-mina': 'MI', 'u-jae': 'JA' },
     });
     const tabs = [...container.querySelectorAll('[data-thread-tab]')].map((t) => t.textContent);
-    // A zero is no number at all (H75).
-    expect(tabs).toEqual(['All', 'Crew · 1', 'Club (off)', 'Pancake']);
+    // Only the diaries someone wrote in, newest first (H33, H75 revised):
+    // Pancake, shared with nothing written, gets none.
+    expect(tabs).toEqual(['All', 'Crew · 1', 'Club (off)']);
     expect(container.querySelector('[data-thread-tab="p-club"]')!.hasAttribute('data-off')).toBe(
       true,
     );
@@ -1024,8 +1037,8 @@ describe('the pool tabs and All’s labels (H75)', () => {
     block({ id: 'side-a', author_id: 'u-mina', note: 'from Crew', thread_pool_id: 'p-crew' }),
   ];
   const threads = [
-    { poolId: 'p-crew', label: 'Crew', count: 1, off: false },
-    { poolId: 'p-pan', label: 'Pancake', count: 2, off: false },
+    { poolId: 'p-crew', label: 'Crew', off: false },
+    { poolId: 'p-pan', label: 'Pancake', off: false },
   ];
   const view = (over: Partial<Parameters<typeof SplashPage>[0]> = {}) =>
     page({
@@ -1178,7 +1191,7 @@ describe('the pool tabs and All’s labels (H75)', () => {
 
   it('in a pool’s tab with its replies, the Reply under the ripple is gone; the one at the end writes there (H)', async () => {
     const { container, getByRole } = asOwner();
-    fireEvent.click(getByRole('tab', { name: 'Pancake · 2' }));
+    fireEvent.click(getByRole('tab', { name: 'Pancake · 3' }));
     const root = under(container, 'first');
     expect(root.querySelector('[data-reply-toggle]')).toBeNull();
     // The chips keep the row's right end.
@@ -1194,7 +1207,7 @@ describe('the pool tabs and All’s labels (H75)', () => {
 
   it('in a pool’s tab with none of its replies, the Reply under the ripple writes to it, opening just below (H)', async () => {
     const { container, getByRole } = asOwner();
-    fireEvent.click(getByRole('tab', { name: 'Crew · 1' }));
+    fireEvent.click(getByRole('tab', { name: 'Crew · 2' }));
     // Crew has no reply on `night`.
     const root = under(container, 'night');
     expect(root.querySelector('[data-reply]')).toBeNull();
@@ -1212,13 +1225,121 @@ describe('the pool tabs and All’s labels (H75)', () => {
 
   it('never shows mine to me alone in a pool’s tab, nor any label (H)', () => {
     const { container, getByRole } = asOwner();
-    fireEvent.click(getByRole('tab', { name: 'Pancake · 2' }));
+    fireEvent.click(getByRole('tab', { name: 'Pancake · 3' }));
     const ids = [...under(container, 'first').querySelectorAll('[data-reply]')].map((r) =>
       r.getAttribute('data-reply'),
     );
     expect(ids).toEqual(['r1', 'r2', 'r5']);
     expect(container.querySelector('[data-reply-thread-label]')).toBeNull();
     expect(container.querySelector('[data-ripple-thread-label]')).toBeNull();
+  });
+});
+
+describe('tabs only for diaries with responses, a row from two (H33, H75 revised)', () => {
+  const FIVE = ['p-1', 'p-2', 'p-3', 'p-4', 'p-5'].map((poolId, i) => ({
+    poolId,
+    label: `Diary ${i + 1}`,
+    off: false,
+  }));
+  const reply = (id: string, pool: string, at: string, author = 'u-mina') => ({
+    id,
+    ripple_id: 'first',
+    author_id: author,
+    body: `reply ${id}`,
+    created_at: at,
+    edited_at: null,
+    hidden: false,
+    former: false,
+    thread_pool_id: pool,
+  });
+  const owned = (over: Partial<Parameters<typeof SplashPage>[0]> = {}) =>
+    render(
+      <PeopleProvider me="a1" people={{ a1: { name: 'Yoonji', photo: null } }}>
+        <InputSheetProvider>
+          <SplashPage
+            splash={summarizeSplash(board, blocks, TZ, NOW)}
+            blocks={blocks}
+            photos={{}}
+            lockedIds={[]}
+            categories={LANES}
+            timeZone={TZ}
+            today={TODAY}
+            threads={FIVE}
+            respondable
+            {...over}
+          />
+        </InputSheetProvider>
+      </PeopleProvider>,
+    );
+  const tabs = (container: HTMLElement) =>
+    [...container.querySelectorAll('[data-thread-tab]')].map((t) =>
+      t.getAttribute('data-thread-tab'),
+    );
+
+  it('shared to five with none responding: no tab row, no labels', () => {
+    const { container } = owned();
+    expect(container.querySelector('[data-thread-tabs]')).toBeNull();
+    expect(container.querySelector('[data-ripple-thread-label]')).toBeNull();
+  });
+
+  it('shared to five with one responding: no tab row; its note and replies say where', () => {
+    const side = block({
+      id: 'side-3',
+      author_id: 'u-mina',
+      note: 'from Diary 3',
+      thread_pool_id: 'p-3',
+    });
+    const { container } = owned({
+      blocks: [...blocks, side],
+      initialsOf: { 'u-mina': 'MI' },
+      responses: { reactions: [], replies: [reply('r1', 'p-3', '2026-10-26T09:00:00Z')] },
+    });
+    expect(container.querySelector('[data-thread-tabs]')).toBeNull();
+    expect(
+      container.querySelector('[data-thread-entry="side-3"] [data-ripple-thread-label]')!
+        .textContent,
+    ).toBe('· in Diary 3');
+    expect(container.querySelector('[data-reply-thread-label]')!.textContent).toBe('in Diary 3');
+  });
+
+  it('shared to five with two responding: All, then those two, newest response first', () => {
+    const { container } = owned({
+      responses: {
+        reactions: [
+          {
+            ripple_id: 'first',
+            user_id: 'u-jae',
+            emoji: '🔥',
+            created_at: '2026-10-26T11:00:00Z',
+            thread_pool_id: 'p-4',
+          },
+        ],
+        replies: [reply('r1', 'p-2', '2026-10-26T10:00:00Z')],
+      },
+    });
+    // A reaction counts as a response; Diary 4's is the newer.
+    expect(tabs(container)).toEqual(['all', 'p-4', 'p-2']);
+    expect(container.querySelector('[data-thread-tab="p-2"]')!.textContent).toBe('Diary 2 · 1');
+  });
+
+  it('takes a tab away when its last response is deleted, the open tab falling back to All', async () => {
+    const { container, getByRole } = owned({
+      responses: {
+        reactions: [],
+        replies: [
+          reply('r1', 'p-2', '2026-10-26T10:00:00Z'),
+          reply('r2', 'p-5', '2026-10-26T11:00:00Z', 'a1'),
+        ],
+      },
+    });
+    expect(tabs(container)).toEqual(['all', 'p-5', 'p-2']);
+    fireEvent.click(getByRole('tab', { name: 'Diary 5' }));
+    expect(getByRole('tab', { name: 'Diary 5' }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.click(container.querySelector('[data-reply="r2"] [data-reply-delete]')!);
+    await waitFor(() => expect(container.querySelector('[data-thread-tabs]')).toBeNull());
+    // One diary left with responses: no row; on All, its reply labelled.
+    expect(container.querySelector('[data-reply="r1"]')).not.toBeNull();
+    expect(container.querySelector('[data-reply-thread-label]')!.textContent).toBe('in Diary 2');
   });
 });
 

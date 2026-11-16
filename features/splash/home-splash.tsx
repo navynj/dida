@@ -6,7 +6,6 @@ import { SplashGone } from '@/features/splash/splash-gone';
 import { SplashPage } from '@/features/splash/splash-page';
 import { declaredRange, orderBlocks } from '@/features/splash/block-day';
 import { summarizeOrphan, summarizeSplash } from '@/features/splash/summary';
-import { threadCount } from '@/features/splash/thread-count';
 import { signOwnMedia, signRippleMedia } from '@/lib/media';
 import { mediaMetaOf } from '@/lib/ripple-media';
 import { getMyCategories, getMyProfile } from '@/lib/queries/profile';
@@ -145,25 +144,20 @@ export async function HomeSplash({ id }: { id: string }) {
       .filter((h) => !placements.some((p) => p.splashId === h.splashId && p.poolId === h.poolId))
       .map((h) => ({ splashId: h.splashId, poolId: h.poolId, poolLaneId: '', shared: false })),
   ];
-  // Or once anyone has responded in a pool (0053): another pool's replies
-  // and reactions read only in that pool's tab.
+  // Every place it could get a tab: the page keeps those with a response,
+  // live, and shows the row from two (H33, H75 revised; thread-tabs).
   const responded = (pid: string): boolean =>
     responses.replies.some((r) => r.thread_pool_id === pid) ||
     responses.reactions.some((r) => r.thread_pool_id === pid);
-  const threads =
-    others.length === 0 && !placed.some((p) => responded(p.poolId))
-      ? []
-      : placed
-          .filter(
-            (p) =>
-              p.shared || others.some((r) => r.thread_pool_id === p.poolId) || responded(p.poolId),
-          )
-          .map((p) => ({
-            poolId: p.poolId,
-            label: pools.find((x) => x.id === p.poolId)?.name ?? 'A diary you left',
-            count: threadCount(p.poolId, profile.id, others, responses.replies),
-            off: !p.shared,
-          }));
+  const threads = placed
+    .filter(
+      (p) => p.shared || others.some((r) => r.thread_pool_id === p.poolId) || responded(p.poolId),
+    )
+    .map((p) => ({
+      poolId: p.poolId,
+      label: pools.find((x) => x.id === p.poolId)?.name ?? 'A diary you left',
+      off: !p.shared,
+    }));
 
   return (
     <>

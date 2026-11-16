@@ -35,6 +35,7 @@ import { CompactBar } from './compact-bar';
 import { HeaderMenu } from './header-menu';
 import { BlockView } from './block';
 import { RippleThread } from './ripple-thread';
+import { respondingThreads, TABS_FROM, type ThreadPlace } from './thread-tabs';
 import { useCloseSplash } from './splash-modal';
 import { SplashHeader, type HeaderEdit } from './splash-header';
 import type { SplashSummary } from './summary';
@@ -135,10 +136,11 @@ export function SplashPage({
   /** Someone besides me can see it, so its blocks take reactions and replies (H25). */
   respondable?: boolean;
   /**
-   * My record on Home, shared to pools whose members wrote (0035): a tab per
-   * pool, each my ripples and that pool's members'; off placements muted.
+   * My record on Home, the diaries it is shared to or holds a thread in
+   * (0035; an off placement muted): each gets a tab once anyone writes
+   * there, the row from two (H33, H75 revised; respondingThreads).
    */
-  threads?: { poolId: string; label: string; count: number; off: boolean }[];
+  threads?: ThreadPlace[];
   /** Initials by author, for others' ripples read on Home (0035). */
   initialsOf?: Record<string, string>;
   /**
@@ -157,22 +159,44 @@ export function SplashPage({
   // Mine to edit: my own ripples only — on Home others' are read there too (0035).
   const editable = (block: RippleWithSplash): boolean =>
     pool ? block.author_id === pool.me : !me || block.author_id === me;
+  const {
+    value: page,
+    run,
+    message,
+  } = useOptimisticAction<PageState>({
+    splash,
+    blocks,
+    lockedIds,
+  });
   // Tabs per pool on my record (0035): the one picked; else, opened at a
   // reply (a notification), its pool's (0053); else All (review).
   const [picked, setTab] = useState<string | null>(null);
   const openedAt = useOpenedAt();
   const openedThread = responses.replies.find((r) => `reply-${r.id}` === openedAt)?.thread_pool_id;
-  const tab =
-    picked ??
-    (openedThread && threads.some((t) => t.poolId === openedThread) ? openedThread : ALL_TAB);
+  const asked = picked ?? openedThread ?? ALL_TAB;
+  // Responses are written into the pool shown (0053); the tab asked for
+  // until the tabs below are read, then corrected (a tab that went away).
+  const answered = useRippleResponses(
+    responses,
+    pool ? pool.poolId : asked !== ALL_TAB && threads.length > 0 ? asked : null,
+  );
+  // A tab only for a diary someone wrote in, newest first, and a row of
+  // tabs only from two of them (H33, H75 revised): read live, so a first
+  // response adds one and deleting the last takes it away.
+  const responding = respondingThreads(threads, page.blocks, answered.value, me ?? '');
+  const tabbed = responding.length >= TABS_FROM ? responding : [];
+  const tab = tabbed.some((t) => t.poolId === asked) ? asked : ALL_TAB;
+  // The open tab gone (its last response deleted): back to All, and it
+  // stays there if the tab comes back. Adjusted while rendering, not in an
+  // effect, so the gone tab never paints.
+  if (picked && picked !== ALL_TAB && !tabbed.some((t) => t.poolId === picked)) setTab(ALL_TAB);
   // Which blocks show: in a pool, the owner's and that pool's members'; on
   // Home with a pool's tab, the owner's and that pool's; on All, or with no
   // tabs, every one I can read — and a reply written there is the owner's
   // from no pool, shown in every thread (0053).
-  const shownPool = pool ? pool.poolId : threads.length > 0 && tab !== ALL_TAB ? tab : null;
+  const shownPool = pool ? pool.poolId : tab !== ALL_TAB ? tab : null;
   // Responses, the same way (0053): this pool's thread, or the tab's, with
-  // the owner's from no pool; written into the pool shown.
-  const answered = useRippleResponses(responses, shownPool);
+  // the owner's from no pool.
   const thread = inThread(answered.value, shownPool);
   // The header's title out of view: the compact bar shows (H75).
   const side = useRef<HTMLDivElement>(null);
@@ -191,10 +215,10 @@ export function SplashPage({
     watch.observe(row);
     return () => watch.disconnect();
   }, []);
-  // On All, where each pool's part came from, "in Pancake", as the card
-  // stack says it (H75); a pool's own tab needs none.
+  // On All, or with no tab row, where each pool's part came from, "in
+  // Pancake", as the card stack says it (H75); a pool's own tab needs none.
   const labelOf = (poolId: string | null): string | null => {
-    if (threads.length === 0 || tab !== ALL_TAB || !poolId) return null;
+    if (responding.length === 0 || tab !== ALL_TAB || !poolId) return null;
     return `in ${threads.find((t) => t.poolId === poolId)?.label ?? 'a diary'}`;
   };
   // Opened at a reply from the board: its block, brought into view.
@@ -229,15 +253,6 @@ export function SplashPage({
   const [editor, setEditor] = useState<EditorTarget | null>(null);
   const showsBlock = (block: RippleWithSplash): boolean =>
     !block.thread_pool_id || shownPool === null || block.thread_pool_id === shownPool;
-  const {
-    value: page,
-    run,
-    message,
-  } = useOptimisticAction<PageState>({
-    splash,
-    blocks,
-    lockedIds,
-  });
 
   /** A header change, shown at once: the post's lane and range are what its blocks take (H24). */
   function editHeader(edit: HeaderEdit): Promise<void> {
@@ -475,7 +490,7 @@ export function SplashPage({
   const responsesMode: ResponsesMode =
     shownPool !== null
       ? { kind: 'pool' }
-      : threads.length > 0 && owner
+      : responding.length > 0 && owner
         ? {
             kind: 'all',
             owner,
@@ -605,7 +620,7 @@ export function SplashPage({
             onDelete={remove}
           />
         }
-        ruled={threads.length === 0}
+        ruled={tabbed.length === 0}
       />
       <div ref={side} data-splash-side className="flex flex-col">
         <SplashHeader
@@ -639,7 +654,7 @@ export function SplashPage({
             // With tabs, the tabs and the Audience chip say where it is (H75);
             // with the chip, the chip alone (H80): the line would say it twice.
             // On a record that is not mine there is no chip, and the line stays.
-            poolTags.length > 0 && threads.length === 0 && !audience ? (
+            poolTags.length > 0 && tabbed.length === 0 && !audience ? (
               <p data-origin-tags className="text-pool-500 flex flex-wrap gap-x-3 text-xs">
                 {poolTags.map((tag) => (
                   <span key={tag} data-origin-tag>
@@ -672,7 +687,7 @@ export function SplashPage({
       </div>
 
       <div data-splash-blocks className="flex flex-col">
-        {threads.length > 0 ? (
+        {tabbed.length > 0 ? (
           // All, then a tab per pool whose members wrote on my record (0035;
           // review): underlined tabs, the chosen one in ink, as the toolbar's.
           // Pinned under the compact bar while the header scrolls away (H75),
@@ -683,7 +698,7 @@ export function SplashPage({
             data-thread-tabs
             className="no-scrollbar border-pool-100 sticky top-12 z-10 -mx-6 flex overflow-x-auto border-b bg-white px-6 lg:-mx-8 lg:px-8"
           >
-            {[{ poolId: ALL_TAB, label: 'All', count: 0, off: false }, ...threads].map((t) => {
+            {[{ poolId: ALL_TAB, label: 'All', count: 0, off: false }, ...tabbed].map((t) => {
               const on = tab === t.poolId;
               return (
                 <button
