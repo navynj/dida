@@ -170,7 +170,7 @@ export function DraftCard({
             if (isComposing(event)) return;
             bodyField.current?.focus();
           }}
-          placeholder="Title (optional)"
+          placeholder="Title"
           rows={1}
           aria-label="Title"
           data-sheet-title

@@ -310,7 +310,7 @@ describe('the first line is the title (SPEC 6)', () => {
     const { container } = sheet();
     const title = container.querySelector<HTMLTextAreaElement>('[data-sheet-title]')!;
     const body = container.querySelector<HTMLTextAreaElement>('[data-sheet-body]')!;
-    expect(title.placeholder).toBe('Title (optional)');
+    expect(title.placeholder).toBe('Title');
     expect(body.placeholder).toBe('Enter the content');
     expect(document.activeElement).toBe(body);
     expect(title.className).toContain('text-lg');
@@ -394,7 +394,7 @@ describe('the sheet’s shape', () => {
     // One neutral backdrop in every theme (H78s).
     expect(container.querySelector('[aria-label="Close"]')!.className).toContain('scrim');
     expect(getByRole('dialog').querySelector('textarea')!.getAttribute('placeholder')).toBe(
-      'Title (optional)',
+      'Title',
     );
   });
 

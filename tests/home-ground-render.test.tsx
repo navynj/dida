@@ -1452,7 +1452,8 @@ describe('the draft card (H80)', () => {
       expect(draft.querySelector('[data-draft-category]')).toBeNull();
       expect(draft.textContent).not.toContain('+ Category');
       const title = draft.querySelector<HTMLTextAreaElement>('[aria-label="Title"]')!;
-      expect(title.getAttribute('placeholder')).toBe('Title (optional)');
+      // Just Title (2026-11-15): optional goes without saying (H21).
+      expect(title.getAttribute('placeholder')).toBe('Title');
       expect(title.className).toContain('text-3xl');
       // The title never scrolls or shows a bar.
       expect(title.className).toContain('overflow-hidden');
