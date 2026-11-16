@@ -73,7 +73,7 @@ export function SplashDescription({
               if (!value) onEmpty?.();
             }
           }}
-          className="text-ink placeholder:text-ink w-full resize-none text-sm/relaxed outline-none placeholder:opacity-30"
+          className="writing-field text-ink placeholder:text-ink w-full resize-none text-sm/relaxed outline-none placeholder:opacity-30"
         />
       ) : value ? (
         editable ? (

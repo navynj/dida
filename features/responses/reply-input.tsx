@@ -47,7 +47,7 @@ export function ReplyInput({
         onChange={(event) => setBody(event.target.value)}
         onKeyDown={key}
         // Grows with its words, to four lines of 20px and no further.
-        className="border-pool-200 text-ink placeholder:text-pool-500 field-sizing-content max-h-[88px] min-w-0 flex-1 resize-none rounded-2xl border bg-white px-3 py-1 text-sm leading-5 outline-none"
+        className="writing-field border-pool-200 text-ink placeholder:text-pool-500 field-sizing-content max-h-[88px] min-w-0 flex-1 resize-none rounded-2xl border bg-white px-3 py-1 text-sm leading-5 outline-none"
       />
       {REPLY_MAX - body.length <= NEAR_LIMIT ? (
         <span className="text-pool-500 pb-1.5 text-[10px] tabular-nums">

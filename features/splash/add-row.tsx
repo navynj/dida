@@ -145,7 +145,7 @@ export function AddRow({
             rows={shown ? 3 : 1}
             autoFocus={autoFocus}
             data-add-field
-            className="text-ink placeholder:text-pool-500 min-w-0 flex-1 resize-none overflow-hidden bg-transparent py-0.5 text-[15px]/[1.65] outline-none"
+            className="writing-field text-ink placeholder:text-pool-500 min-w-0 flex-1 resize-none overflow-hidden bg-transparent py-0.5 text-[15px]/[1.65] outline-none"
           />
           <button
             type="button"

@@ -897,3 +897,13 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+/*
+ * Free-text writing fields (the composer's title, description and content,
+ * a page's title, add row, block editor and description, a reply): the
+ * caret shows focus there, and a ring drew two lines across the card once
+ * a key (Shift+arrow) selected text. Buttons, chips, tabs, the date and
+ * category controls and the search fields keep the ring above.
+ */
+[data-keyboard] .writing-field:focus-visible {
+  outline: none;
+}

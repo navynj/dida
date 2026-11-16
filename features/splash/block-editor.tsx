@@ -116,7 +116,7 @@ export function BlockEditor({
         autoFocus
         aria-label="Block"
         data-block-field
-        className="text-ink placeholder:text-ink min-h-20 w-full resize-none overflow-hidden text-[15px]/[1.65] outline-none placeholder:opacity-20"
+        className="writing-field text-ink placeholder:text-ink min-h-20 w-full resize-none overflow-hidden text-[15px]/[1.65] outline-none placeholder:opacity-20"
       />
 
       <div className="flex flex-wrap items-center gap-2">

@@ -239,7 +239,7 @@ function EditForm({
           aria-label="Title"
           data-edit-title
           placeholder="Untitled"
-          className="text-main-900 placeholder:text-main-900 min-w-0 flex-1 resize-none text-3xl/snug font-semibold outline-none placeholder:opacity-20"
+          className="writing-field text-main-900 placeholder:text-main-900 min-w-0 flex-1 resize-none text-3xl/snug font-semibold outline-none placeholder:opacity-20"
         />
       </div>
 

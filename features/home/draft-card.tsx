@@ -174,7 +174,7 @@ export function DraftCard({
           rows={1}
           aria-label="Title"
           data-sheet-title
-          className={`${DETAIL_TITLE_CLASS} text-main-900 placeholder:text-main-900 min-w-0 flex-1 resize-none overflow-hidden leading-tight outline-none placeholder:opacity-30`}
+          className={`writing-field ${DETAIL_TITLE_CLASS} text-main-900 placeholder:text-main-900 min-w-0 flex-1 resize-none overflow-hidden leading-tight outline-none placeholder:opacity-30`}
         />
       </div>
       <DraftCategoryRow composer={c} pools={pools} />
@@ -193,7 +193,7 @@ export function DraftCard({
           placeholder="Describe this page"
           aria-label="Description"
           data-compose-description-field
-          className="text-ink placeholder:text-ink border-pool-200 mx-5 mt-2 shrink-0 resize-none border-b pb-3 text-sm/relaxed outline-none placeholder:opacity-30"
+          className="writing-field text-ink placeholder:text-ink border-pool-200 mx-5 mt-2 shrink-0 resize-none border-b pb-3 text-sm/relaxed outline-none placeholder:opacity-30"
         />
       ) : null}
       {/* The body fills what is left and scrolls inside it. Backspace at its
@@ -217,7 +217,7 @@ export function DraftCard({
         autoFocus
         aria-label="Content"
         data-sheet-body
-        className="text-ink placeholder:text-ink min-h-16 w-full flex-1 resize-none overflow-y-auto overscroll-contain px-5 pt-3 text-[15px]/relaxed outline-none placeholder:opacity-30"
+        className="writing-field text-ink placeholder:text-ink min-h-16 w-full flex-1 resize-none overflow-y-auto overscroll-contain px-5 pt-3 text-[15px]/relaxed outline-none placeholder:opacity-30"
       />
 
       {/* Pinned to the card's bottom, above the keyboard: the image row,

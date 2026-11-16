@@ -234,7 +234,7 @@ export function SplashHeader({
                   setEditingTitle(false);
                 }
               }}
-              className={`text-ink w-full ${DETAIL_TITLE_CLASS} outline-none`}
+              className={`writing-field text-ink w-full ${DETAIL_TITLE_CLASS} outline-none`}
             />
           ) : (
             <button

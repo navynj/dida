@@ -90,7 +90,7 @@ export function ComposerFields({
           rows={1}
           aria-label="Title"
           data-sheet-title
-          className="text-ink placeholder:text-ink min-w-0 flex-1 resize-none text-lg/snug font-semibold outline-none placeholder:opacity-30"
+          className="writing-field text-ink placeholder:text-ink min-w-0 flex-1 resize-none text-lg/snug font-semibold outline-none placeholder:opacity-30"
         />
         {/* `…` beside the title, not on a line of its own above it, so the
             sheet does not open on an empty top (Yoonji, in the session). */}
@@ -110,7 +110,7 @@ export function ComposerFields({
           placeholder="Describe this page"
           aria-label="Description"
           data-compose-description-field
-          className="text-ink placeholder:text-ink border-pool-100 -mt-2 w-full resize-none border-b pb-4 text-sm/relaxed outline-none placeholder:opacity-30"
+          className="writing-field text-ink placeholder:text-ink border-pool-100 -mt-2 w-full resize-none border-b pb-4 text-sm/relaxed outline-none placeholder:opacity-30"
         />
       ) : null}
       {/* Backspace at the very start of the body walks the cursor back up
@@ -135,7 +135,7 @@ export function ComposerFields({
         autoFocus={autoFocus}
         aria-label="Content"
         data-sheet-body
-        className="text-ink placeholder:text-ink min-h-20 w-full resize-none text-lg/relaxed outline-none placeholder:opacity-30"
+        className="writing-field text-ink placeholder:text-ink min-h-20 w-full resize-none text-lg/relaxed outline-none placeholder:opacity-30"
       />
 
       {/* The date and a photo come first, above the lane (review). */}

@@ -187,7 +187,7 @@ export function InputSheet({
               rows={3}
               autoFocus
               aria-label="Note"
-              className="text-ink placeholder:text-ink min-h-20 w-full resize-none pt-3 text-xl outline-none placeholder:opacity-20"
+              className="writing-field text-ink placeholder:text-ink min-h-20 w-full resize-none pt-3 text-xl outline-none placeholder:opacity-20"
             />
           </div>
 
