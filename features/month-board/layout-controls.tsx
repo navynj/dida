@@ -7,6 +7,7 @@ import type { Card } from '@/features/home/grid';
 
 import type { BoardLayoutJson, LayoutSource } from './board-layout';
 import { type Recipe } from './layout';
+import { useTone } from './control-tone';
 import { ChosenDot, useLabelChoices, useLabelStyleNames } from './label-styles';
 import { PartOrder } from './part-order';
 import { LAYER_RANGE } from './stacking';
@@ -42,9 +43,10 @@ function Slider({
   onReset: () => void;
 }) {
   const set = value !== undefined;
+  const t = useTone();
   return (
     <label data-layout-control={name} className="flex items-center gap-2 text-xs">
-      <span className="w-20 shrink-0 text-white/80">{name}</span>
+      <span className={`w-20 shrink-0 ${t.name}`}>{name}</span>
       <input
         type="range"
         aria-label={name}
@@ -56,11 +58,9 @@ function Slider({
         style={
           { '--fill': `${(((value ?? fallback) - min) / (max - min)) * 100}%` } as CSSProperties
         }
-        className="layout-range min-w-0 flex-1"
+        className={`${t.range} min-w-0 flex-1`}
       />
-      <span
-        className={`w-16 shrink-0 text-right tabular-nums ${set ? 'text-white' : 'text-white/50'}`}
-      >
+      <span className={`w-16 shrink-0 text-right tabular-nums ${set ? t.value : t.auto}`}>
         {set ? unit(value) : 'Auto'}
       </span>
       <button
@@ -72,7 +72,7 @@ function Slider({
           event.preventDefault();
           onReset();
         }}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/70 disabled:opacity-20"
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${t.reset} disabled:opacity-20`}
       >
         <RotateCcw aria-hidden size={12} />
       </button>
@@ -94,6 +94,7 @@ function Switch({
   /** Why it cannot be switched, beside it. */
   note?: string;
 }) {
+  const t = useTone();
   return (
     <button
       type="button"
@@ -103,15 +104,15 @@ function Switch({
       disabled={disabled}
       title={note}
       onClick={() => onChange(!on)}
-      className="flex items-center gap-2 text-xs text-white/80 disabled:opacity-50"
+      className={`flex items-center gap-2 text-xs ${t.name} disabled:opacity-50`}
     >
       <span
-        className={`flex h-4 w-7 items-center rounded-full p-0.5 ${on ? 'justify-end bg-white' : 'justify-start bg-white/25'}`}
+        className={`flex h-4 w-7 items-center rounded-full p-0.5 ${on ? `justify-end ${t.switchOn}` : `justify-start ${t.switchOff}`}`}
       >
-        <span className={`h-3 w-3 rounded-full ${on ? 'bg-main-900' : 'bg-white'}`} />
+        <span className={`h-3 w-3 rounded-full ${on ? t.knobOn : t.knobOff}`} />
       </span>
       {name}
-      {note ? <span className="text-white/60">· {note}</span> : null}
+      {note ? <span className={t.note}>· {note}</span> : null}
     </button>
   );
 }
@@ -134,10 +135,11 @@ function Choice<T extends string>({
   onChange: (v: T) => void;
   onReset: () => void;
 }) {
+  const t = useTone();
   // One border width on all, so Auto's dashed one does not make it taller.
   const chip = (auto: boolean) =>
-    `relative rounded-full border bg-white/15 px-2.5 py-0.5 text-white/80 ${
-      auto ? 'border-dashed border-white/50' : 'border-transparent'
+    `relative rounded-full border px-2.5 py-0.5 ${t.soft} ${t.name} ${
+      auto ? `border-dashed ${t.dashed}` : 'border-transparent'
     }`;
   return (
     <div
@@ -146,7 +148,7 @@ function Choice<T extends string>({
       aria-label={name}
       className="flex items-center gap-2 text-xs"
     >
-      <span className="w-20 shrink-0 text-white/80">{name}</span>
+      <span className={`w-20 shrink-0 ${t.name}`}>{name}</span>
       {/* Room under each row for the dot. */}
       <div className="flex flex-wrap gap-x-1 gap-y-3 pb-2">
         <button
@@ -177,9 +179,10 @@ function Choice<T extends string>({
 }
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
+  const t = useTone();
   return (
     <section data-layout-group={title} className="flex flex-col gap-1.5">
-      <h3 className="text-xs font-semibold text-white">{title}</h3>
+      <h3 className={`text-xs font-semibold ${t.heading}`}>{title}</h3>
       {children}
     </section>
   );
@@ -200,7 +203,16 @@ export type LayoutControlsProps = {
   message: string | null;
   onEdit: Edit;
   onRevert: () => void;
+  /**
+   * Which sections show, as the edit toolbar's tab says (review): All every
+   * one; Label, Position and Label; Icon, Position and Icon; a photo,
+   * Position and Photos.
+   */
+  only?: LayoutSections;
 };
+
+/** The toolbar tab a panel follows. */
+export type LayoutSections = 'all' | 'label' | 'icon' | 'photo';
 
 /**
  * Every hand-set field of a splash's layout as a slider, switch or choice
@@ -218,7 +230,11 @@ export function LayoutControls({
   message,
   onEdit,
   onRevert,
+  only = 'all',
 }: LayoutControlsProps) {
+  const t = useTone();
+  const shows = (section: 'icon' | 'label' | 'photo'): boolean =>
+    only === 'all' || only === section;
   const styleNames = useLabelStyleNames();
   const styleChoices = useLabelChoices();
   // Every photo, so one hidden from the board (0044) can be shown again.
@@ -243,7 +259,7 @@ export function LayoutControls({
     <>
       {home && card.joint ? (
         <div className="flex items-center justify-between gap-2 text-xs">
-          <span data-layout-source className="text-white/80">
+          <span data-layout-source className={t.name}>
             {source === 'home' ? 'Home override' : 'Using diary layout'}
           </span>
           {source === 'home' && pooled ? (
@@ -251,7 +267,7 @@ export function LayoutControls({
               type="button"
               data-layout-use-pool
               onClick={onRevert}
-              className="rounded-full bg-white/30 px-3 py-1 font-medium text-white"
+              className={`rounded-full px-3 py-1 font-medium ${t.strong}`}
             >
               Use diary layout
             </button>
@@ -301,7 +317,7 @@ export function LayoutControls({
       ) : null}
 
       {/* A period is a tape along its days (review): only its words' size is its own. */}
-      {!period ? (
+      {!period && shows('icon') ? (
         <Group title="Icon">
           {/* Off the board only, as a photo can be; the card and the page keep it (0055). */}
           <Switch
@@ -369,93 +385,95 @@ export function LayoutControls({
         </Group>
       ) : null}
 
-      <Group title="Label">
-        {!period ? (
-          <Switch
-            name="Show label on board"
-            on={label.hidden !== true}
-            disabled={lastOne && label.hidden !== true}
-            note={lastOne && label.hidden !== true ? KEEP : undefined}
-            onChange={(on) =>
-              on ? onEdit({}, ['label.hidden']) : onEdit({ label: { hidden: true } })
-            }
-          />
-        ) : null}
-        {!period ? (
-          <>
-            {/* Any record's to choose (0058), joint or not; Auto is the rule's.
+      {shows('label') ? (
+        <Group title="Label">
+          {!period ? (
+            <Switch
+              name="Show label on board"
+              on={label.hidden !== true}
+              disabled={lastOne && label.hidden !== true}
+              note={lastOne && label.hidden !== true ? KEEP : undefined}
+              onChange={(on) =>
+                on ? onEdit({}, ['label.hidden']) : onEdit({ label: { hidden: true } })
+              }
+            />
+          ) : null}
+          {!period ? (
+            <>
+              {/* Any record's to choose (0058), joint or not; Auto is the rule's.
                 The toolbar's swatch says the same four. */}
-            <Choice
-              name="Style"
-              value={label.style}
-              options={styleChoices.map((value) => ({ value, label: styleNames[value] }))}
-              onChange={(v) => onEdit({ label: { style: v } })}
-              onReset={() => onEdit({}, ['label.style'])}
-            />
-            <Slider
-              name="Width"
-              value={label.width}
-              fallback={1}
-              min={0.3}
-              max={4}
-              step={0.05}
-              unit={lanes}
-              onChange={(v) => onEdit({ label: { width: v } })}
-              onReset={() => onEdit({}, ['label.width'])}
-            />
-          </>
-        ) : null}
-        <Slider
-          name="Text size"
-          value={label.fontSize}
-          fallback={10}
-          min={10}
-          max={18}
-          step={1}
-          unit={(v) => `${v}px`}
-          onChange={(v) => onEdit({ label: { fontSize: v } })}
-          onReset={() => onEdit({}, ['label.fontSize'])}
-        />
-        {!period ? (
-          <>
-            <Slider
-              name="Label X"
-              value={label.x}
-              fallback={0}
-              min={-3}
-              max={3}
-              step={0.01}
-              unit={lanes}
-              onChange={(v) => onEdit({ label: { x: v } })}
-              onReset={() => onEdit({}, ['label.x'])}
-            />
-            <Slider
-              name="Label Y"
-              value={label.y}
-              fallback={0}
-              min={-20}
-              max={20}
-              step={0.1}
-              unit={lines}
-              onChange={(v) => onEdit({ label: { y: v } })}
-              onReset={() => onEdit({}, ['label.y'])}
-            />
-            <Slider
-              name="Label tilt"
-              value={label.tilt}
-              fallback={0}
-              min={-45}
-              max={45}
-              step={1}
-              unit={degrees}
-              onChange={(v) => onEdit({ label: { tilt: v } })}
-              onReset={() => onEdit({}, ['label.tilt'])}
-            />
-          </>
-        ) : null}
-      </Group>
+              <Choice
+                name="Style"
+                value={label.style}
+                options={styleChoices.map((value) => ({ value, label: styleNames[value] }))}
+                onChange={(v) => onEdit({ label: { style: v } })}
+                onReset={() => onEdit({}, ['label.style'])}
+              />
+              <Slider
+                name="Width"
+                value={label.width}
+                fallback={1}
+                min={0.3}
+                max={4}
+                step={0.05}
+                unit={lanes}
+                onChange={(v) => onEdit({ label: { width: v } })}
+                onReset={() => onEdit({}, ['label.width'])}
+              />
+            </>
+          ) : null}
+          <Slider
+            name="Text size"
+            value={label.fontSize}
+            fallback={10}
+            min={10}
+            max={18}
+            step={1}
+            unit={(v) => `${v}px`}
+            onChange={(v) => onEdit({ label: { fontSize: v } })}
+            onReset={() => onEdit({}, ['label.fontSize'])}
+          />
+          {!period ? (
+            <>
+              <Slider
+                name="Label X"
+                value={label.x}
+                fallback={0}
+                min={-3}
+                max={3}
+                step={0.01}
+                unit={lanes}
+                onChange={(v) => onEdit({ label: { x: v } })}
+                onReset={() => onEdit({}, ['label.x'])}
+              />
+              <Slider
+                name="Label Y"
+                value={label.y}
+                fallback={0}
+                min={-20}
+                max={20}
+                step={0.1}
+                unit={lines}
+                onChange={(v) => onEdit({ label: { y: v } })}
+                onReset={() => onEdit({}, ['label.y'])}
+              />
+              <Slider
+                name="Label tilt"
+                value={label.tilt}
+                fallback={0}
+                min={-45}
+                max={45}
+                step={1}
+                unit={degrees}
+                onChange={(v) => onEdit({ label: { tilt: v } })}
+                onReset={() => onEdit({}, ['label.tilt'])}
+              />
+            </>
+          ) : null}
+        </Group>
+      ) : null}
 
-      {photos.length > 0 && !period ? (
+      {photos.length > 0 && !period && shows('photo') ? (
         <Group title="Photos">
           {photos.map((photo, at) => {
             const set = layout.photos?.[photo.path] ?? {};
@@ -473,7 +491,7 @@ export function LayoutControls({
                     className="h-10 w-10 shrink-0 object-contain"
                   />
                 ) : (
-                  <span aria-hidden className="h-10 w-10 shrink-0 bg-white/20" />
+                  <span aria-hidden className={`h-10 w-10 shrink-0 ${t.photo}`} />
                 )}
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   {/* Off the board only; the card and the sheet keep it (0044). */}
@@ -539,7 +557,7 @@ export function LayoutControls({
         </Group>
       ) : null}
 
-      {!period ? (
+      {!period && only === 'all' ? (
         <PartOrder
           layout={layout}
           photos={photos.map((p) => p.path)}
@@ -550,7 +568,7 @@ export function LayoutControls({
 
       <div className="flex items-center justify-between">
         {message ? (
-          <p role="alert" className="text-xs text-white/80">
+          <p role="alert" className={`text-xs ${t.name}`}>
             {message}
           </p>
         ) : (
@@ -560,7 +578,7 @@ export function LayoutControls({
           type="button"
           data-layout-reset-all
           onClick={() => onEdit({}, ['icon', 'label', 'photos'])}
-          className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium"
+          className={`rounded-full px-3 py-1 text-xs font-medium ${t.soft}`}
         >
           Reset all
         </button>

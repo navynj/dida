@@ -120,7 +120,7 @@ function media(wide: boolean): void {
 const BLUE_WATER: Theme = { color: 'blue', mode: 'dark' };
 
 function home(cards: Card[], theme: Theme = BLUE_WATER) {
-  return render(
+  const view = render(
     <ThemeProvider initial={{ home: theme.color, mode: theme.mode, everywhere: false }}>
       <InputSheetProvider>
         <HomeGround
@@ -135,6 +135,28 @@ function home(cards: Card[], theme: Theme = BLUE_WATER) {
       </InputSheetProvider>
     </ThemeProvider>,
   );
+  // The popover is portaled to the body (review): every query reads the page.
+  return { ...view, container: document.body as HTMLElement };
+}
+
+/**
+ * The layout, as a desktop opens it (review): the top card's piece tapped,
+ * which makes it active and shows the edit toolbar, then the toolbar's More.
+ */
+function openLayout(root: ParentNode, id?: string): Element {
+  const piece = id
+    ? root.querySelector(`[data-board-piece="${id}"], [data-board-tape="${id}"]`)!
+    : root.querySelector('[data-board-piece], [data-board-tape]')!;
+  // Its label, else whatever of it is drawn: an icon, a photo, a tape.
+  const label =
+    piece.querySelector(
+      '[data-board-label], [data-board-band], [data-board-sticker], [data-board-photo-card]',
+    ) ?? piece;
+  // A first tap brings a record to the top; a tap on the top one edits it.
+  fireEvent.click(label);
+  if (!root.querySelector('[data-edit-more]')) fireEvent.click(label);
+  fireEvent.click(root.querySelector('[data-edit-more]')!);
+  return root.querySelector('[data-layout-panel]')!;
 }
 
 beforeEach(() => {
@@ -153,30 +175,71 @@ afterEach(() => {
 const ONE = [card('s1', 'Grand Austria Hotel', '2026-10-21')];
 
 describe('the Layout panel (review)', () => {
-  it('sits under the stack on a desktop, folded to one row, for the top card', () => {
+  it('is no panel under the stack: the edit toolbar’s More opens it as a popover', () => {
     media(true);
     const { container } = home(ONE);
-    const panel = container.querySelector('[data-layout-panel]')!;
+    expect(container.querySelector('[data-layout-panel]')).toBeNull();
+    expect(container.querySelector('[data-layout-toggle]')).toBeNull();
+    const panel = openLayout(container);
     expect(panel.getAttribute('data-layout-panel')).toBe('s1');
-    expect(panel.querySelector('[data-layout-body]')).toBeNull();
-    fireEvent.click(panel.querySelector('[data-layout-toggle]')!);
-    expect(panel.querySelector('[data-layout-body]')).not.toBeNull();
-    for (const group of ['Icon', 'Label']) {
-      expect(panel.querySelector(`[data-layout-group="${group}"]`)).not.toBeNull();
+    expect(panel.getAttribute('role')).toBe('dialog');
+    // The toolbar's own card: white, its radius and shadow.
+    expect(panel.className).toContain('surface');
+    expect(panel.className).toContain('rounded-[20px]');
+    expect(panel.className).toContain('shadow-md');
+    expect(panel.querySelector('[data-layout-body]')!.className).toContain('overflow-y-auto');
+    for (const group of ['Position', 'Icon', 'Label']) {
+      expect(panel.querySelector(`[data-layout-group="${group}"]`), group).not.toBeNull();
     }
+    expect(panel.querySelector('[data-layout-reset-all]')).not.toBeNull();
     // No wave (H41).
     expect(panel.querySelector('[data-layout-group="Wave"]')).toBeNull();
   });
 
-  it('stays open as another label is picked on the calendar', () => {
+  it('closes on More again, on Done, on Escape and on a tap outside, never on the toolbar', () => {
     media(true);
-    const { container } = home([...ONE, card('s2', 'Lynn Canyon', '2026-10-22')]);
-    const panel = () => container.querySelector('[data-layout-panel]')!;
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
-    const other = panel().getAttribute('data-layout-panel') === 's1' ? 's2' : 's1';
-    fireEvent.click(container.querySelector(`[data-board-pick="${other}"]`)!);
-    expect(panel().getAttribute('data-layout-panel')).toBe(other);
-    expect(panel().querySelector('[data-layout-body]')).not.toBeNull();
+    const { container } = home(ONE);
+    const open = () => container.querySelector('[data-layout-panel]');
+    openLayout(container);
+    fireEvent.click(container.querySelector('[data-edit-more]')!);
+    expect(open()).toBeNull();
+    fireEvent.click(container.querySelector('[data-edit-more]')!);
+    fireEvent.click(container.querySelector('[data-layout-done]')!);
+    expect(open()).toBeNull();
+    fireEvent.click(container.querySelector('[data-edit-more]')!);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(open()).toBeNull();
+    // Escape closed the popover alone: the piece is still being edited.
+    expect(container.querySelector('[data-edit-toolbar]')).not.toBeNull();
+    fireEvent.click(container.querySelector('[data-edit-more]')!);
+    fireEvent.pointerDown(container.querySelector('[data-edit-undo]')!);
+    expect(open()).not.toBeNull();
+    fireEvent.pointerDown(document.body);
+    expect(open()).toBeNull();
+  });
+
+  it('follows the toolbar’s tab: Label shows Position and Label, Icon Position and Icon', () => {
+    media(true);
+    const { container } = home(ONE);
+    openLayout(container);
+    const groups = () =>
+      [...container.querySelectorAll('[data-layout-panel] [data-layout-group]')].map((g) =>
+        g.getAttribute('data-layout-group'),
+      );
+    expect(groups()).toEqual(expect.arrayContaining(['Position', 'Icon', 'Label']));
+    const tab = (name: string) =>
+      [...container.querySelectorAll('[data-edit-parts] [role="tab"]')].find(
+        (t) => t.textContent?.trim() === name,
+      );
+    if (tab('Label')) {
+      fireEvent.click(tab('Label')!);
+      expect(groups()).toEqual(['Position', 'Label']);
+    }
+    if (tab('Icon')) {
+      fireEvent.click(tab('Icon')!);
+      expect(groups()).toEqual(['Position', 'Icon']);
+    }
+    expect(tab('Label') ?? tab('Icon'), 'a piece of more than one part').toBeDefined();
   });
 
   it('shows Inline as the board drew it while unset: off for a sticker, on inline', () => {
@@ -184,7 +247,7 @@ describe('the Layout panel (review)', () => {
     const seen = new Set<string>();
     for (const id of ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8']) {
       const { container } = home([card(id, 'Grand Austria Hotel', '2026-10-21')]);
-      fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+      openLayout(container);
       const recipe = container
         .querySelector(`[data-board-piece="${id}"]`)!
         .getAttribute('data-recipe')!;
@@ -216,7 +279,7 @@ describe('the Layout panel (review)', () => {
     vi.useFakeTimers();
     media(true);
     const { container } = home(ONE);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     const tilt = container.querySelector<HTMLInputElement>('input[aria-label="Label tilt"]')!;
     fireEvent.change(tilt, { target: { value: '7' } });
     const label = container.querySelector<HTMLElement>(
@@ -238,7 +301,7 @@ describe('the Layout panel (review)', () => {
     media(true);
     const photos = [0, 1].map((at) => ({ rippleId: 's1-b', path: `a1/s1-${at}.webp` }));
     const { container } = home([{ ...ONE[0], photos }]);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     const row = container.querySelector('[data-layout-photo="a1/s1-1.webp"]')!;
     const show = row.querySelector<HTMLElement>('[data-layout-switch="Show on board"]')!;
     expect(show.getAttribute('aria-checked')).toBe('true');
@@ -260,7 +323,7 @@ describe('the Layout panel (review)', () => {
     // Stored hidden: the switch reads off, and turning it on clears the field.
     const hidden = { photos: { 'a1/s1-1.webp': { hidden: true } } };
     const again = home([{ ...ONE[0], photos, layout: hidden }]);
-    fireEvent.click(again.container.querySelector('[data-layout-toggle]')!);
+    openLayout(again.container);
     const off = again.container.querySelector<HTMLElement>(
       '[data-layout-photo="a1/s1-1.webp"] [data-layout-switch="Show on board"]',
     )!;
@@ -288,7 +351,7 @@ describe('the Layout panel (review)', () => {
       poolLayout: { label: { y: -1 } },
     });
     const { container } = home([joint]);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     expect(container.querySelector('[data-layout-source]')!.textContent).toBe('Home override');
     fireEvent.click(container.querySelector('[data-layout-use-pool]')!);
     expect(reverted).toEqual(['j1']);
@@ -301,7 +364,7 @@ describe('a label’s width and style in the panel (review)', () => {
     vi.useFakeTimers();
     media(true);
     const { container } = home([{ ...ONE[0], joint: true, together: true, layoutSource: 'pool' }]);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     const label = () =>
       container.querySelector<HTMLElement>('[data-board-piece="s1"] [data-board-label]')!;
     const before = parseFloat(label().style.width);
@@ -326,7 +389,7 @@ describe('a label’s width and style in the panel (review)', () => {
   it('marks the set style with a dot under its chip, every chip keeping its look (review)', () => {
     media(true);
     const { container } = home([{ ...ONE[0], together: true }]);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     const style = container.querySelector('[data-layout-control="Style"]')!;
     const marked = () =>
       [...style.querySelectorAll('[data-chosen-dot]')].map((dot) => dot.parentElement!);
@@ -344,14 +407,14 @@ describe('a label’s width and style in the panel (review)', () => {
   it('offers Style on my side of someone else’s record too, as on any record (0058)', () => {
     media(true);
     const { container } = home([{ ...ONE[0], side: true, pools: ['Our Pool'] }]);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     expect(container.querySelector('[data-layout-control="Style"]')).not.toBeNull();
   });
 
   it('offers Style, White or Black, on my own record once someone is invited on it (0035)', () => {
     media(true);
     const { container } = home([{ ...ONE[0], together: true }]);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     const style = container.querySelector('[data-layout-control="Style"]')!;
     expect(style).not.toBeNull();
     expect(style.querySelector('[data-layout-choice="white"]')!.textContent).toBe('White');
@@ -365,7 +428,7 @@ describe('a label’s width and style in the panel (review)', () => {
   it('names the white fill after my theme colour in light mode, where it shows as that colour', () => {
     media(true);
     const { container } = home([{ ...ONE[0], together: true }], { color: 'pink', mode: 'light' });
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     expect(container.querySelector('[data-layout-choice="white"]')!.textContent).toBe('Pink');
     expect(container.querySelector('[data-layout-choice="ink"]')!.textContent).toBe('Black');
     expect(container.querySelector('[data-layout-choice="outline"]')!.textContent).toBe('Outline');
@@ -374,7 +437,7 @@ describe('a label’s width and style in the panel (review)', () => {
   it('names the fills after what they show in pastel mode, in the order they look (0036, H72)', () => {
     media(true);
     const { container } = home([{ ...ONE[0], together: true }], { color: 'pink', mode: 'pastel' });
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     expect(container.querySelector('[data-layout-choice="white"]')!.textContent).toBe('Pink');
     const style = container.querySelector('[data-layout-control="Style"]')!;
     expect(
@@ -395,7 +458,7 @@ describe('a label’s width and style in the panel (review)', () => {
     media(true);
     for (const cards of [ONE, [{ ...ONE[0], joint: true, together: false }]]) {
       const view = home(cards);
-      fireEvent.click(view.container.querySelector('[data-layout-toggle]')!);
+      openLayout(view.container);
       const style = view.container.querySelector('[data-layout-control="Style"]')!;
       expect(
         [...style.querySelectorAll('[data-layout-choice]')].map((b) =>
@@ -410,7 +473,7 @@ describe('a label’s width and style in the panel (review)', () => {
   it('turns the icon by Icon tilt, inline or a sticker', () => {
     media(true);
     const { container } = home(ONE);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     fireEvent.change(container.querySelector('input[aria-label="Icon tilt"]')!, {
       target: { value: '9' },
     });
@@ -423,7 +486,7 @@ describe('a label’s width and style in the panel (review)', () => {
   it('has no border on a slider’s bar', () => {
     media(true);
     const { container } = home(ONE);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     const range = container.querySelector<HTMLInputElement>('input[aria-label="Width"]')!;
     expect(range.className).toContain('layout-range');
     expect(range.style.getPropertyValue('--fill')).toMatch(/%$/);
@@ -439,7 +502,7 @@ describe('a period’s layout (review)', () => {
   it('offers only Text size for a period: it is a tape along its days', () => {
     media(true);
     const { container } = home([PERIOD]);
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container);
     const controls = [...container.querySelectorAll('[data-layout-control]')].map((c) =>
       c.getAttribute('data-layout-control'),
     );
@@ -573,7 +636,7 @@ describe('hand-set layouts on the calendar (review)', () => {
       container.querySelector<HTMLElement>(`[data-board-piece="${id}"] [data-board-label]`)!.style
         .zIndex;
     expect(z('s2')).toBe(String(zOf(1, 1)));
-    fireEvent.click(container.querySelector('[data-layout-toggle]')!);
+    openLayout(container, 's2');
     expect(container.querySelector('[data-layout-group="Position"]')).not.toBeNull();
     const slider = container.querySelector<HTMLInputElement>('input[aria-label="Layer"]')!;
     expect(slider.min).toBe('-20');
@@ -646,7 +709,7 @@ describe('hiding the icon or the label, and the order within a post (0055)', () 
     });
   const open = (cards: Card[]) => {
     const view = home(cards);
-    fireEvent.click(view.container.querySelector('[data-layout-toggle]')!);
+    openLayout(view.container);
     return view;
   };
   const control = (root: Element, name: string) =>

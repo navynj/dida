@@ -868,7 +868,7 @@ describe('direct manipulation: the page around it', () => {
     expect(container.querySelector('[data-edit-mode-done]')).toBeNull();
   });
 
-  it('opens More as a sheet of every slider on a phone, the panel on a desktop', () => {
+  it('opens More as a sheet of every slider on a phone, a popover on a desktop', () => {
     const phone = home();
     fireEvent.click(label(phone.container, 's2'));
     fireEvent.click(q(phone.container, '[data-edit-more]'));
@@ -884,8 +884,9 @@ describe('direct manipulation: the page around it', () => {
     fireEvent.click(label(desk.container, 's2'));
     expect(desk.container.querySelector('[data-layout-body]')).toBeNull();
     fireEvent.click(q(desk.container, '[data-edit-more]'));
-    expect(q(desk.container, '[data-layout-panel="s2"] [data-layout-body]')).not.toBeNull();
-    expect(desk.container.querySelector('[data-layout-sheet]')).toBeNull();
+    // Portaled to the body, anchored to the toolbar (review).
+    expect(q(document, '[data-layout-panel="s2"] [data-layout-body]')).not.toBeNull();
+    expect(document.querySelector('[data-layout-sheet]')).toBeNull();
   });
 
   it('sends a piece to the back from the toolbar: the Layer slider follows, saved after the rest, undoable', async () => {
@@ -897,7 +898,7 @@ describe('direct manipulation: the page around it', () => {
     ]);
     fireEvent.click(label(container, 's2'));
     fireEvent.click(q(container, '[data-edit-more]'));
-    const slider = () => q(container, '[data-layout-control="Layer"] input') as HTMLInputElement;
+    const slider = () => q(document, '[data-layout-control="Layer"] input') as HTMLInputElement;
     expect(slider().value).toBe('0');
     // On top of what it overlaps: nothing to bring forward.
     expect(q(container, '[data-edit-layer="forward"]').hasAttribute('disabled')).toBe(true);
@@ -924,7 +925,8 @@ describe('direct manipulation: the page around it', () => {
     await drag(q(container, '[data-edit-frame="label"]'), [100, 100], [170, 100], {
       release: false,
     });
-    const slider = q(container, '[data-layout-control="Label X"] input') as HTMLInputElement;
+    // Still open after the drag: the slider moved with the handle.
+    const slider = q(document, '[data-layout-control="Label X"] input') as HTMLInputElement;
     expect(slider.value).toBe('0.5');
     fireEvent.pointerUp(window, { clientX: 170, clientY: 100, pointerId: 1 });
     await settle();

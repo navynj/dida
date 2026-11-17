@@ -23,7 +23,7 @@ import type { IsoDate } from '@/lib/time';
 import { useOptimisticAction } from '@/lib/use-optimistic-action';
 import { BoardFrame, MonthBoard } from '@/features/month-board/month-board';
 import { EditModeDone } from '@/features/month-board/edit-mode-done';
-import { LayoutPanel } from '@/features/month-board/layout-panel';
+import { LayoutPopover } from '@/features/month-board/layout-panel';
 import { LayoutSheet } from '@/features/month-board/layout-sheet';
 import { useBoardEditing, useLayoutHistory } from '@/features/month-board/use-board-editing';
 import type { Recipe } from '@/features/month-board/layout';
@@ -313,10 +313,13 @@ export function PoolGround({
     topId: heading,
     canEdit: member && ((boardView && (wide || editMode)) || laneKind || membersKind),
     onPick: bringForward,
-    onMore: () => (wide ? setPanelOpen(true) : setSheetOpen(true)),
+    // More toggles the popover on a desktop; on a phone it opens the sheet.
+    onMore: () => (wide ? setPanelOpen((was) => !was) : setSheetOpen(true)),
     direct: editMode,
   });
   if (sheetOpen && editing.activeId === null) setSheetOpen(false);
+  // The popover goes with the piece too: Done, a tap on empty board, Escape.
+  if (panelOpen && editing.activeId === null) setPanelOpen(false);
   const toggleEditMode = (): void => {
     editing.deactivate();
     setEditModeOn(!editMode);
@@ -468,22 +471,21 @@ export function PoolGround({
               hrefFor={(id) => shown.find((c) => c.splash.id === id)?.href ?? poolPath(poolId)}
             />
           )}
-          {/* Desktop only (review): the top card's layout, the pool's, under the stack; not keyed by the card, so open it stays open as another label is picked. */}
-          {/* The Calendar, the Lane view and Members, each its own layouts. */}
-          {(boardView || laneKind || membersKind) && wide && topCard ? (
-            <LayoutPanel
-              layers={editing.layers}
+          {/* Desktop (review): the toolbar's More opens the layout as a popover
+              anchored to it, following its tab; nothing under the stack. */}
+          {panelOpen && wide && topCard && editing.activeId === topCard.splash.id ? (
+            <LayoutPopover
               card={topCard}
               recipe={recipes[topCard.splash.id] ?? null}
               layout={viewDrafts.shown(topCard.splash.id).layout}
               source={viewDrafts.shown(topCard.splash.id).source}
               home={false}
               view={laneKind ? 'lane' : membersKind ? 'members' : 'calendar'}
+              only={editing.part.kind === 'piece' ? 'all' : editing.part.kind}
               message={viewDrafts.message}
               onEdit={(patch, clear) => viewDrafts.edit(topCard.splash.id, patch, clear)}
               onRevert={() => viewDrafts.revertToPool(topCard.splash.id)}
-              open={panelOpen}
-              onOpenChange={setPanelOpen}
+              onClose={() => setPanelOpen(false)}
             />
           ) : null}
           {sheetOpen && !wide && topCard ? (

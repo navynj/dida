@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 
+import { useTone } from './control-tone';
 import type { BoardLayoutJson } from './board-layout';
 import { defaultPartOrder, partOrder } from './stacking';
 
@@ -25,6 +26,7 @@ export function PartOrder({
   sticker: boolean;
   onEdit: (patch: BoardLayoutJson) => void;
 }) {
+  const t = useTone();
   const present = defaultPartOrder({
     label: layout.label?.hidden !== true,
     photos: photos.filter((path) => layout.photos?.[path]?.hidden !== true),
@@ -52,7 +54,7 @@ export function PartOrder({
   // Its own heading, as the panel's groups have: none for a post of one part.
   return (
     <section data-layout-group="Within this page" className="flex flex-col gap-1.5">
-      <h3 className="text-xs font-semibold text-white">Within this page</h3>
+      <h3 className={`text-xs font-semibold ${t.heading}`}>Within this page</h3>
       <div data-part-order className="flex items-start gap-2">
         <ol className="flex min-w-0 flex-1 flex-col gap-1">
           {[...order].reverse().map((key) => (
@@ -64,7 +66,7 @@ export function PartOrder({
                 onClick={() => setPicked(key === picked ? null : key)}
                 // Selection is ink (H20f).
                 className={`w-full rounded-full px-3 py-1 text-left text-xs ${
-                  key === picked ? 'bg-ink text-white' : 'text-white/80'
+                  key === picked ? 'bg-ink text-white' : t.name
                 }`}
               >
                 {nameOf(key)}
@@ -79,7 +81,7 @@ export function PartOrder({
             data-part-order-up
             disabled={at < 0 || at === order.length - 1}
             onClick={() => move(1)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white disabled:opacity-30"
+            className={`flex h-8 w-8 items-center justify-center rounded-full ${t.softer} disabled:opacity-30`}
           >
             <ArrowUp aria-hidden size={14} />
           </button>
@@ -89,7 +91,7 @@ export function PartOrder({
             data-part-order-down
             disabled={at <= 0}
             onClick={() => move(-1)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white disabled:opacity-30"
+            className={`flex h-8 w-8 items-center justify-center rounded-full ${t.softer} disabled:opacity-30`}
           >
             <ArrowDown aria-hidden size={14} />
           </button>

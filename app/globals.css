@@ -451,6 +451,21 @@ body {
   border-radius: 9999px;
   background: #fff;
 }
+/* On the edit toolbar's white card (the desktop's popover): ink on grey,
+   as the toolbar's own switch; `surface` keeps the card white in dark. */
+.layout-range-card {
+  background: linear-gradient(
+    to right,
+    var(--color-ink) var(--fill, 50%),
+    var(--color-pool-200) var(--fill, 50%)
+  );
+}
+.layout-range-card::-webkit-slider-thumb {
+  background: var(--color-ink);
+}
+.layout-range-card::-moz-range-thumb {
+  background: var(--color-ink);
+}
 
 /*
  * A live session surface: solid #0507C9 with white water in it (H15).
