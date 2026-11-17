@@ -19,6 +19,7 @@ import type { Ring } from '@/features/home/lane-grid';
 import { monthKey } from '@/features/splash/summary';
 import type { SignedMedia } from '@/lib/media';
 import type { IsoDate } from '@/lib/time';
+import type { ShareView } from '@/features/share-image/range';
 
 import { ON_PIECE } from './board-handles';
 import { holdingPiece } from './use-hold-to-move';
@@ -111,8 +112,8 @@ export function MonthBoard({
   editing?: BoardEditing | null;
   /** The dev fixture's own images by path (/dev/board), which no server signs. */
   fixturePhotos?: SignedMedia;
-  /** Share as image (H63): the glyph on the title row opens its sheet. */
-  onShare?: () => void;
+  /** Share as image (H63): the glyph on the title row opens its sheet, told what is in view. */
+  onShare?: (view: ShareView) => void;
   /** A phone's edit mode is on (review, 2026-10-31): its glyph reads as chosen. */
   editMode?: boolean;
   /** A phone's edit mode (review): the glyph beside Share turns it on and off. */
@@ -277,6 +278,13 @@ export function MonthBoard({
   const picker = useRef<HTMLInputElement>(null);
   // The first day shown: a phone's half starts where it says; a wider week at its first day.
   const shownDay: IsoDate = span === 'month' ? `${month}-01` : phone ? week : weekOf(week);
+  // What Share is of (H63): the week and the month in view. In Week, its
+  // month is the one Month would show; in Month, its week is today's when
+  // today is in it, else its first.
+  const shareView: ShareView =
+    span === 'week'
+      ? { week: weekOf(week), month: monthKey(addDays(weekOf(week), 3)) }
+      : { week: weekOf(monthKey(today) === month ? today : `${month}-01`), month };
   // In Month, the row holding the day chosen is scrolled to once its month
   // has rendered, when it sits out of sight below or above (2026-10-29).
   const [sought, setSought] = useState<{ day: IsoDate; seq: number } | null>(null);
@@ -449,7 +457,7 @@ export function MonthBoard({
             type="button"
             aria-label="Share as image"
             data-board-share
-            onClick={onShare}
+            onClick={() => onShare(shareView)}
             className="flex h-8 w-8 items-center justify-center rounded-full"
           >
             <Share aria-hidden size={16} />

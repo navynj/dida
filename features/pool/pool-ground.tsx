@@ -39,6 +39,7 @@ import { deleteJointSplash } from './actions';
 import { InvitePanel } from './invite-panel';
 import { MembersSheet } from './members-sheet';
 import { ShareSheet } from '@/features/share-image/share-sheet';
+import type { ShareView } from '@/features/share-image/range';
 import {
   poolCards,
   poolColumns,
@@ -91,6 +92,7 @@ export function PoolGround({
   // here holds while I stay.
   const [kind, setKind] = useState<PoolViewKind>(initialView);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [shareView, setShareView] = useState<ShareView | null>(null);
   const settings = useSettings();
   const [profile, setProfile] = useState(false);
   const {
@@ -399,7 +401,10 @@ export function PoolGround({
                 lanes={laneNames}
                 onDrawn={setRecipes}
                 editing={phoneBoard && !editMode ? null : editing}
-                onShare={() => setSheet('share')}
+                onShare={(view) => {
+                  setShareView(view);
+                  setSheet('share');
+                }}
                 editMode={editMode}
                 // Only a current member sets the pool's layouts (0025).
                 onEditMode={member ? toggleEditMode : undefined}
@@ -513,11 +518,11 @@ export function PoolGround({
           onClose={() => setSheet(null)}
         />
       ) : null}
-      {sheet === 'share' ? (
+      {sheet === 'share' && shareView ? (
         <ShareSheet
           cards={drafts.drawn}
           lanes={laneNames}
-          today={today}
+          view={shareView}
           poolName={view.pool.name}
           spanScope={`pool.${poolId}`}
           onClose={() => setSheet(null)}

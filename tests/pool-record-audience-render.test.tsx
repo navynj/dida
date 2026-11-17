@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { OUTLINE_CHIP_CLASS } from '@/components/ui/chips/category-chip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({
@@ -229,7 +230,8 @@ describe('my record shared nowhere, on its header (H75)', () => {
     const view = header([{ poolId: 'p-beta', poolLaneId: 'b1' }]);
     const chip = view.container.querySelector('[data-audience-chip]')!;
     expect(chip.hasAttribute('data-outline')).toBe(true);
-    expect(chip.className).toContain('border-(--surface-3)');
+    // The category's outline chip, exactly (OUTLINE_CHIP_CLASS).
+    expect(chip.className).toContain(OUTLINE_CHIP_CLASS);
     expect(chip.className).toContain('text-pool-500');
     expect(chip.className).not.toContain('bg-ink');
     expect(chip.className).not.toContain('text-white');

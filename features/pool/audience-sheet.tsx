@@ -3,7 +3,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Lock, MoreHorizontal, Users } from 'lucide-react';
 
-import { CategoryChip } from '@/components/ui/chips/category-chip';
+import { CategoryChip, OUTLINE_CHIP_CLASS } from '@/components/ui/chips/category-chip';
 import { useWide } from '@/components/ui/use-wide';
 import { usePeople } from '@/features/people/people-provider';
 import type { PoolFace, PoolLaneChip } from '@/lib/queries/pools';
@@ -134,15 +134,22 @@ export function AudienceChip({
         // surface-1 when not. On a record, an outline a step lighter than
         // the hairline, surface-3 (H80): a chip, not a rule.
         data-outline={outline && on.length > 0 ? '' : undefined}
-        className={`inline-flex max-w-[12rem] shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
-          on.length === 0
-            ? 'bg-pool-100 hover:text-ink text-(--text-inactive)'
-            : outline
-              ? 'text-pool-500 hover:text-ink border border-(--surface-3) bg-transparent py-[3px]'
-              : 'bg-ink text-white'
-        }`}
+        className={
+          outline && on.length > 0
+            ? // The category's outline chip, exactly: one shape, one size.
+              `${OUTLINE_CHIP_CLASS} hover:text-ink max-w-[12rem]`
+            : `inline-flex max-w-[12rem] shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
+                on.length === 0
+                  ? 'bg-pool-100 hover:text-ink text-(--text-inactive)'
+                  : 'bg-ink text-white'
+              }`
+        }
       >
-        <Users aria-hidden size={12} className="shrink-0 opacity-70" />
+        <Users
+          aria-hidden
+          size={outline && on.length > 0 ? 10 : 12}
+          className="shrink-0 opacity-70"
+        />
         <span className="truncate">{chipLabel(on, pools)}</span>
       </button>
       {sheet}

@@ -43,6 +43,7 @@ import { ThemePicker } from '@/features/people/theme-picker';
 import { DeleteAccount } from '@/features/account/delete-account';
 import { SettingsSheet } from '@/features/settings/settings-sheet';
 import { ShareSheet } from '@/features/share-image/share-sheet';
+import type { ShareView } from '@/features/share-image/range';
 import { useSettings } from '@/features/settings/use-settings';
 
 /**
@@ -115,7 +116,7 @@ export function HomeGround({
   // The gear's sheet (0059), and my profile from my face.
   const settings = useSettings();
   const [profile, setProfile] = useState(false);
-  const [sharing, setSharing] = useState(false);
+  const [sharing, setSharing] = useState<ShareView | null>(null);
   const { me } = usePeople();
   // Every visit opens on the Calendar, not the view used last (review); a
   // view chosen here holds while I stay.
@@ -450,7 +451,7 @@ export function HomeGround({
                 lanes={columns}
                 onDrawn={setRecipes}
                 editing={phoneBoard && !editMode ? null : editing}
-                onShare={() => setSharing(true)}
+                onShare={setSharing}
                 editMode={editMode}
                 onEditMode={toggleEditMode}
               />
@@ -584,9 +585,9 @@ export function HomeGround({
         <ShareSheet
           cards={drafts.drawn}
           lanes={columns}
-          today={today}
+          view={sharing}
           poolName={null}
-          onClose={() => setSharing(false)}
+          onClose={() => setSharing(null)}
         />
       ) : null}
     </div>

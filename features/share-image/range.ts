@@ -1,15 +1,12 @@
 import type { Card } from '@/features/home/grid';
 import {
   addDays,
-  boardTitle,
   COLUMNS,
   HALF_COLUMNS,
-  rangeTitle,
   shiftMonth,
   WEEK_START,
   weekOf,
 } from '@/features/month-board/layout';
-import { monthKey } from '@/features/splash/summary';
 import type { IsoDate } from '@/lib/time';
 
 /** What a shared image covers (H63): this week or this month. Custom waits for phase 2. */
@@ -19,35 +16,59 @@ export type ShareRange = {
   span: ShareSpan;
   first: IsoDate;
   last: IsoDate;
-  /** As the board titles it: *Oct 25 – 31*, *2026 OCT*. */
+  /** With its year: *Nov 10 to Nov 16, 2026*, *November 2026*. */
   title: string;
   /** A week's two rows (H63): Sun–Wed over Thu–Sat. */
   rows?: [IsoDate, IsoDate];
 };
 
+/** What the board shows when Share is tapped: the week and the month in view. */
+export type ShareView = { week: IsoDate; month: string };
+
 /**
- * This week or this month, counted from today in my zone (`today` is
- * already mine), the week starting where the board's does.
+ * The week or the month the board is showing, not today's: a shared image
+ * is of the page being looked at. The week starts where the board's does.
  */
-export function shareRange(span: ShareSpan, today: IsoDate): ShareRange {
+export function shareRange(span: ShareSpan, view: ShareView): ShareRange {
   if (span === 'week') {
-    const first = weekOf(today, WEEK_START);
+    const first = weekOf(view.week, WEEK_START);
     const last = addDays(first, COLUMNS - 1);
     return {
       span,
       first,
       last,
-      title: rangeTitle(first, last),
+      title: weekShareTitle(first, last),
       rows: [first, addDays(first, HALF_COLUMNS)],
     };
   }
-  const month = monthKey(today);
+  const month = view.month;
   return {
     span,
     first: `${month}-01`,
     last: addDays(`${shiftMonth(month, 1)}-01`, -1),
-    title: boardTitle(month),
+    title: monthShareTitle(month),
   };
+}
+
+const utc = (day: IsoDate): Date => new Date(`${day}T00:00:00Z`);
+
+/** `Nov 10 to Nov 16, 2026`; across a year, `Dec 28, 2025 to Jan 3, 2026`. */
+export function weekShareTitle(first: IsoDate, last: IsoDate): string {
+  const short = (day: IsoDate): string =>
+    utc(day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const year = (day: IsoDate): string => day.slice(0, 4);
+  return year(first) === year(last)
+    ? `${short(first)} to ${short(last)}, ${year(last)}`
+    : `${short(first)}, ${year(first)} to ${short(last)}, ${year(last)}`;
+}
+
+/** `November 2026`. */
+export function monthShareTitle(month: string): string {
+  return utc(`${month}-01`).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 /**

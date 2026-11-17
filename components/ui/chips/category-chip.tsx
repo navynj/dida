@@ -53,6 +53,13 @@ export function CategoryChip({
 }
 
 /**
+ * The outline chip's look, one string: a lane's chip and a record's
+ * *Shared* chip on its page read as one vocabulary.
+ */
+export const OUTLINE_CHIP_CLASS =
+  'border-pool-100 text-pool-500 inline-flex h-5 shrink-0 items-center gap-1 rounded-full border bg-white px-2 text-[10px]';
+
+/**
  * A lane named on a splash: outline only, never a fill (SPEC 5). The same
  * shape at a smaller size, so a board's chips and the sheet's read as one
  * vocabulary. A board with several lanes shows one chip and a `+N` at its
@@ -69,11 +76,11 @@ export function OutlineChip({
   /** How many further lanes the chip stands for. */
   more?: number;
   className?: string;
-}) {
+}): ReactNode {
+  // A record with no category (one written in a pool) draws no chip at all.
+  if (!name.trim() && !icon) return null;
   return (
-    <span
-      className={`border-pool-100 text-pool-500 inline-flex h-5 shrink-0 items-center gap-1 rounded-full border bg-white px-2 text-[10px] ${className}`}
-    >
+    <span className={`${OUTLINE_CHIP_CLASS} ${className}`}>
       {icon ? <span aria-hidden>{icon}</span> : null}
       {name}
       {more > 0 ? (

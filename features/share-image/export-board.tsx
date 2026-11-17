@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { DidaTile } from '@/components/ui/dida-mark';
+import { DidaMark } from '@/components/ui/dida-mark';
 import type { GridColumn } from '@/features/home/grid';
 import { boardPhotos } from '@/features/month-board/board-layout';
 import {
@@ -238,11 +238,15 @@ function Fit({ room, height, children }: { room: number; height: number; childre
   );
 }
 
-/** The dark tile and the full name, small (H78): the tile reads over any photo. */
+/**
+ * The mark as Home's header draws it, and the full name: no tile behind it.
+ * On the water ground its pages take the theme (globals.css, `.dida-mark`):
+ * the accent in light and pastel, white in dark.
+ */
 function Wordmark() {
   return (
     <div data-export-wordmark className="flex items-center gap-1.5">
-      <DidaTile size={20} />
+      <DidaMark height={20} />
       <span className="text-base font-semibold">Dida Diary</span>
     </div>
   );

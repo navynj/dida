@@ -26,6 +26,7 @@ import { ME, MINA, MY_PHOTOS, MY_VIDEO, SENTINELS, shareCards } from './share-fi
 
 const LANES = [{ id: 'c-day', name: 'Day', icon: '🌊' }];
 const TODAY = '2026-10-28';
+const VIEW = { week: TODAY, month: TODAY.slice(0, 7) };
 
 function people(children: React.ReactNode) {
   return (
@@ -67,7 +68,7 @@ afterEach(() => {
 });
 
 function exported(span: 'week' | 'month', faces: boolean, placeName: string | null = null) {
-  const range = shareRange(span, TODAY);
+  const range = shareRange(span, VIEW);
   const redacted = redactForExport(inRange(shareCards(), range), { faces });
   return render(
     people(
@@ -138,12 +139,15 @@ describe('the shared image’s page (H63)', () => {
     ]);
     const mark = container.querySelector('[data-export-mark]');
     expect(mark?.textContent).toContain('Dida Diary');
-    expect(mark?.textContent).toContain('Oct 25 – 31');
+    expect(mark?.textContent).toContain('Oct 25 to Oct 31, 2026');
+    // Home's mark, no tile behind it.
+    expect(mark?.querySelector('[data-dida-mark]')).not.toBeNull();
+    expect(mark?.querySelector('[data-dida-tile]')).toBeNull();
   });
 
   it('is the month’s days, and none of the days around it carry a record', () => {
     const { container } = exported('month', false);
-    expect(container.querySelector('h1')?.textContent).toBe('2026 OCT');
+    expect(container.querySelector('h1')?.textContent).toBe('October 2026');
     expect(container.querySelector('[data-export-wordmark]')?.textContent).toContain('Dida Diary');
   });
 
@@ -161,7 +165,7 @@ describe('the shared image’s page (H63)', () => {
 
 describe('a video on my record (H63)', () => {
   function drawn(thumb: string | null) {
-    const range = shareRange('week', TODAY);
+    const range = shareRange('week', VIEW);
     const redacted = redactForExport(inRange(shareCards(), range), { faces: false });
     return render(
       people(
@@ -202,7 +206,7 @@ describe('the share sheet (H63)', () => {
         <ShareSheet
           cards={shareCards()}
           lanes={LANES}
-          today={TODAY}
+          view={VIEW}
           poolName={poolName}
           onClose={() => {}}
         />,

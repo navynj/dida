@@ -285,7 +285,8 @@ export function SplashHeader({
             {tags.map((lane) => (
               <OutlineChip key={lane.id} icon={lane.icon} name={lane.name} />
             ))}
-            {tags.length === 0 ? (
+            {/* A record written in a pool has no category: no placeholder either. */}
+            {tags.length === 0 && !splash.ownPoolId ? (
               <span className="text-pool-500 text-[10px]">+ Category</span>
             ) : null}
           </button>

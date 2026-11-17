@@ -4,10 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Card } from '@/features/home/grid';
 import type { SignedMedia } from '@/lib/media';
-import type { IsoDate } from '@/lib/time';
 
 import { captureExport, exportFileName, loadExportPhotos } from './capture';
-import { inRange, shareRange, type ShareRange, type ShareSpan } from './range';
+import { inRange, shareRange, type ShareRange, type ShareSpan, type ShareView } from './range';
 import { redactForExport, type Redacted } from './redact';
 
 export type ShareImage =
@@ -21,12 +20,13 @@ export type ShareImage =
  */
 export function useShareImage({
   cards,
-  today,
+  view,
   span,
   faces,
 }: {
   cards: Card[];
-  today: IsoDate;
+  /** The week and month the board was showing. */
+  view: ShareView;
   span: ShareSpan;
   faces: boolean;
 }): {
@@ -37,7 +37,7 @@ export function useShareImage({
   image: ShareImage;
   onSettled: (root: HTMLElement) => void;
 } {
-  const range = useMemo(() => shareRange(span, today), [span, today]);
+  const range = useMemo(() => shareRange(span, view), [span, view]);
   const redacted = useMemo(
     () => redactForExport(inRange(cards, range), { faces }),
     [cards, range, faces],

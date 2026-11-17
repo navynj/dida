@@ -18,7 +18,15 @@ import { useRippleResponses } from '@/features/responses/use-ripple-responses';
 
 import { CardPhotos } from './card-photos';
 import { CardPreview, CardResponseLine } from './card-preview';
-import { cardDate, postIcon, shownPools, type Card, type CardLane, type CardPhoto } from './grid';
+import {
+  cardDate,
+  inPoolColumn,
+  postIcon,
+  shownPools,
+  type Card,
+  type CardLane,
+  type CardPhoto,
+} from './grid';
 import { LinkedText } from '@/components/ui/linked-text';
 import { DEFAULT_THEME, themeHex } from '@/lib/theme';
 
@@ -215,7 +223,11 @@ export function CardFace({
           />
         ) : null}
       </span>
-      {chip && lane ? <OutlineChip icon={lane.icon} name={lane.name} /> : null}
+      {/* A record written in a pool and not filed in a lane of mine has no
+        category here: its pool's column stands in, and no chip names it. */}
+      {chip && lane && !inPoolColumn(card) ? (
+        <OutlineChip icon={lane.icon} name={lane.name} />
+      ) : null}
     </span>
   );
   // Gone from its pool: said where the old place line said it.
@@ -383,7 +395,8 @@ function CardDiaryChip({ pools }: { pools: { name: string; photo: string | null 
   return (
     <span
       data-card-diary-chip
-      className="text-pool-500 inline-flex h-5 max-w-[11rem] shrink-0 items-center gap-1 rounded-full border border-(--surface-3) px-1.5 text-[10px]"
+      // Plain words on the card, not a chip: the category's chip stays one.
+      className="text-pool-500 inline-flex h-5 max-w-[11rem] shrink-0 items-center gap-1 text-[10px]"
     >
       {one ? (
         <>

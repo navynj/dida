@@ -7,22 +7,21 @@ import type { Card, GridColumn } from '@/features/home/grid';
 import { useBoardSpan } from '@/features/month-board/board-span';
 import { SheetFrame } from '@/features/splash-sheet/sheet-frame';
 import { Switch } from '@/features/pool/switch';
-import type { IsoDate } from '@/lib/time';
 
 import { shareFile } from './capture';
 import { ExportBoard } from './export-board';
 import { PreviewSkeleton } from './preview-skeleton';
-import type { ShareSpan } from './range';
+import type { ShareSpan, ShareView } from './range';
 import { useShareImage } from './use-share-image';
 
 const SPANS: { span: ShareSpan; name: string }[] = [
-  { span: 'week', name: 'This week' },
-  { span: 'month', name: 'This month' },
+  { span: 'week', name: 'Week' },
+  { span: 'month', name: 'Month' },
 ];
 
 /**
- * Share as image (H63): the Calendar as a story, 1080×1920. This week or
- * this month (the board's span first); in a pool, the switch for the pool's
+ * Share as image (H63): the Calendar as a story, 1080×1920. The week or
+ * the month the board is showing (the board's span first); in a pool, the switch for the pool's
  * name and its members' faces, off. The preview is the image itself, made
  * before Share is tapped; Share opens the phone's share sheet with it, or
  * downloads it where there is none. Nothing is uploaded: the page is drawn
@@ -31,7 +30,7 @@ const SPANS: { span: ShareSpan; name: string }[] = [
 export function ShareSheet({
   cards,
   lanes,
-  today,
+  view,
   poolName,
   spanScope = null,
   onClose,
@@ -39,7 +38,8 @@ export function ShareSheet({
   /** The Calendar's cards, with its layouts. */
   cards: Card[];
   lanes: Pick<GridColumn, 'id' | 'icon' | 'name'>[];
-  today: IsoDate;
+  /** The week and the month the board was showing when Share was tapped. */
+  view: ShareView;
   /** In a pool, its name: the switch is offered. On Home, none. */
   poolName: string | null;
   /** Whose board span it starts from: a pool's id, or none for Home's. */
@@ -51,7 +51,7 @@ export function ShareSheet({
   const [faces, setFaces] = useState(false);
   const { range, redacted, photos, image, onSettled } = useShareImage({
     cards,
-    today,
+    view,
     span,
     faces: poolName !== null && faces,
   });

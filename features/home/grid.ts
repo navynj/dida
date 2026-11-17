@@ -281,6 +281,11 @@ export function inLeftPool(card: Card, poolId: string): Card {
   return { ...card, column: ownPoolColumn(poolId), lane: { icon: null, name: 'A diary you left' } };
 }
 
+/** True when the card sits in a pool's column on Home: no lane of mine names it. */
+export function inPoolColumn(card: Card): boolean {
+  return cardColumn(card)?.startsWith('pool:') ?? false;
+}
+
 /** The column a mark sits in: the pool's choice where there is one (H23), else its lane. */
 export function cardColumn(card: Card): string | null {
   if (card.column) return card.column;
