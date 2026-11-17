@@ -14,10 +14,21 @@ import { aspectKey, type Measured } from './layout';
 let aspects: Record<string, number> = {};
 const listeners = new Set<() => void>();
 
+/**
+ * How far a ratio may stray from the one learned and still be the same
+ * photo: its copies (0070's thumb on the board, display on a shared image)
+ * are resized, and rounding leaves their ratios a hair apart. Within it the
+ * first ratio stands, so two copies on screen never take turns rewriting it
+ * — each rewrite re-rendered every board, whose images wrote theirs back,
+ * until React gave up (Maximum update depth, 2026-11-16).
+ */
+const SAME_PHOTO = 0.02;
+
 export function notePhotoAspect(path: string, width: number, height: number): void {
   if (!(width > 0 && height > 0)) return;
   const ratio = width / height;
-  if (Math.abs((aspects[path] ?? 0) - ratio) < 0.001) return;
+  const known = aspects[path];
+  if (known !== undefined && Math.abs(known - ratio) / known < SAME_PHOTO) return;
   aspects = { ...aspects, [path]: ratio };
   listeners.forEach((listener) => listener());
 }
@@ -61,16 +72,28 @@ export function withAspects(measured: Measured, known: Record<string, number>): 
  * already — an image the browser had at hand finishes before hydration
  * attaches `onLoad`, and that event is never seen.
  */
-export function learnsAspect(path: string): {
+type Learns = {
   ref: (img: HTMLImageElement | null) => void;
   onLoad: (event: { currentTarget: HTMLImageElement }) => void;
-} {
+};
+const learners = new Map<string, Learns>();
+
+/**
+ * One pair of handlers per path, the same each render: a new ref callback
+ * every render is detached and attached again on every commit, and each
+ * attach wrote to the store from inside the commit.
+ */
+export function learnsAspect(path: string): Learns {
+  const had = learners.get(path);
+  if (had) return had;
   const note = (img: HTMLImageElement) =>
     notePhotoAspect(path, img.naturalWidth, img.naturalHeight);
-  return {
+  const made: Learns = {
     ref: (img) => {
       if (img?.complete && img.naturalWidth > 0) note(img);
     },
     onLoad: (event) => note(event.currentTarget),
   };
+  learners.set(path, made);
+  return made;
 }
