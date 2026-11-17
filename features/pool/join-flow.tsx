@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { DidaTile } from '@/components/ui/dida-mark';
+import { DidaMark } from '@/components/ui/dida-mark';
 import { Monogram } from '@/components/ui/monogram';
 import { initialsOf } from '@/features/home/grid';
 import { useInputSheet } from '@/features/input-sheet/sheet-provider';
@@ -73,9 +73,9 @@ export function JoinFlow({
   return (
     // "Join Pool" names the place before anything else: the word a Pool is learnt by (review).
     <StepPage step={null} title="Join this shared diary" onBack={() => router.replace('/')}>
-      {/* Where a first look lands (H78): the dark tile, the name, the tagline. */}
+      {/* Where a first look lands (H78): the mark, no tile, the name, the tagline. */}
       <div data-invite-intro className="mb-8 flex items-center gap-3">
-        <DidaTile size={36} />
+        <DidaMark height={32} />
         <div className="flex flex-col">
           <span className="text-ink text-sm font-semibold">Dida Diary</span>
           <span className="text-pool-500 text-xs">A digital diary you decorate.</span>

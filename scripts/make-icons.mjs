@@ -3,8 +3,8 @@
 // public/dida-logo-light.svg. Run it again whenever the mark changes:
 //   node scripts/make-icons.mjs
 //
-// Tile = app icon (Yoonji, 2026-11-14). The dark tile (_docs/dida-full-logo.svg:
-// the white mark on #161622, at 58%) is the app icon — apple-touch, PWA,
+// White tile = app icon (Yoonji, 2026-11-17; was the dark tile, 2026-11-14).
+// The ink mark on white, at 58%, is the app icon — apple-touch, PWA,
 // maskable, the push icon — and the link preview's centrepiece. Everywhere
 // else the mark is transparent: the browser tab draws the ink mark, the
 // white mark under a dark browser theme. The _docs originals stay as exported.
@@ -29,9 +29,9 @@ const MARK_H = 284;
 export const INK_MARK = { back: '#D0D0D4', front: '#161622' };
 /** On dark grounds: the front white, the back the grey the dark export's 20% white made (#48484F). */
 export const WHITE_MARK = { back: '#48484F', front: '#FFFFFF' };
-/** On the tile: the white mark as exported, its back page white at 20%. */
-const TILE_MARK = { back: 'rgba(255,255,255,0.2)', front: '#FFFFFF' };
-const TILE = '#161622';
+/** On the tile: the ink mark, on white. */
+const TILE_MARK = INK_MARK;
+const TILE = '#FFFFFF';
 
 // The export sits the mark 7.5/441 above centre: its optical centre, since
 // the front page hangs lower and carries the weight. Kept on every square.
@@ -58,7 +58,7 @@ const svg = (size, body) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${body}</svg>`;
 
 /**
- * The dark tile: the app icon. Rounded where the platform shows the file as
+ * The white tile: the app icon. Rounded where the platform shows the file as
  * it is (PWA "any"), square where it cuts its own shape (apple-touch,
  * maskable); in a maskable icon the mark is 58% of the middle 80% the
  * launcher keeps, so it lands the size it does on a tile.
@@ -101,7 +101,7 @@ function ico(entries) {
 }
 
 const made = [];
-// App icons and the push icon (the 192): the dark tile, the mark at 58%.
+// App icons and the push icon (the 192): the white tile, the ink mark at 58%.
 made.push(await png(tile(180, { rounded: false }), 'dida-apple-touch-icon.png'));
 made.push(await png(tile(192, { rounded: true }), 'dida-icon-192.png'));
 made.push(await png(tile(512, { rounded: true }), 'dida-icon-512.png'));
@@ -146,16 +146,15 @@ writeFileSync(
 );
 made.push(join(PUBLIC, 'dida-favicon.svg'));
 
-// The link preview: 1200 × 630, the dark tile centred on white.
+// The link preview: 1200 × 630, the white tile on white: the ink mark alone,
+// the size it is on a 300px tile.
 const OG_TILE = 300;
 made.push(
   await png(
     `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">` +
       `<rect width="1200" height="630" fill="#FFFFFF"/>` +
       `<g transform="translate(${(1200 - OG_TILE) / 2} ${(630 - OG_TILE) / 2})">` +
-      tile(OG_TILE, { rounded: true })
-        .replace(/^<svg[^>]*>/, '')
-        .replace(/<\/svg>$/, '') +
+      markIn(OG_TILE, ICON_MARK, INK_MARK) +
       `</g></svg>`,
     'dida-og-image.png',
   ),

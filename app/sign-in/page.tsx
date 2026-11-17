@@ -1,4 +1,4 @@
-import { DidaTile } from '@/components/ui/dida-mark';
+import { DidaMark } from '@/components/ui/dida-mark';
 import { PoolBlock } from '@/features/auth/pool-block';
 import { SignInButton } from '@/features/auth/sign-in-button';
 import { safeNext } from '@/lib/next-path';
@@ -25,11 +25,13 @@ export default async function SignInPage({ searchParams }: PageProps<'/sign-in'>
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center px-6 py-10 text-center">
-      {/* The dark tile, the name and the tagline (H78); then, as one unit,
-          the sample diary, the note and the button (H65, revised). */}
+      {/* The mark beside the name, no tile behind it, and the tagline (H78);
+          then, as one unit, the sample diary, the note and the button (H65, revised). */}
       <div className="flex max-w-xs flex-col items-center gap-3">
-        <DidaTile size={64} />
-        <h1 className="text-ink text-3xl font-semibold">Dida Diary</h1>
+        <h1 className="text-ink flex items-center gap-2.5 text-3xl font-semibold">
+          <DidaMark height={34} />
+          Dida Diary
+        </h1>
         <p className="text-pool-500 text-sm">A digital diary you decorate.</p>
       </div>
 

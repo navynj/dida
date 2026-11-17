@@ -35,34 +35,3 @@ export function DidaMark({
     </svg>
   );
 }
-
-/**
- * The dark tile (public/dida-full-logo.svg): the white mark on a rounded
- * #161622 square, as exported plus its corners. For the places a first look
- * lands on — sign-in, the invite — and over photos, which vary behind it.
- */
-export function DidaTile({
-  size = 48,
-  className = '',
-}: {
-  size?: number;
-  className?: string;
-}): ReactElement {
-  return (
-    <svg
-      aria-hidden
-      data-dida-tile
-      viewBox="0 0 441 441"
-      width={size}
-      height={size}
-      className={`shrink-0 ${className}`}
-    >
-      <rect width="441" height="441" rx="98" fill="#161622" />
-      {/* The mark at 58% of the tile, lifted 7.5 as the export is (scripts/make-icons.mjs). */}
-      <g transform="translate(114.2 85.1) scale(0.9006)">
-        <path d={BACK} fill="#ffffff" opacity={0.2} />
-        <path d={FRONT} fill="#ffffff" />
-      </g>
-    </svg>
-  );
-}

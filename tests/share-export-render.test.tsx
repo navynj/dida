@@ -140,9 +140,8 @@ describe('the shared image’s page (H63)', () => {
     const mark = container.querySelector('[data-export-mark]');
     expect(mark?.textContent).toContain('Dida Diary');
     expect(mark?.textContent).toContain('Oct 25 to Oct 31, 2026');
-    // Home's mark, no tile behind it.
+    // Home's mark, drawn in the theme's colours.
     expect(mark?.querySelector('[data-dida-mark]')).not.toBeNull();
-    expect(mark?.querySelector('[data-dida-tile]')).toBeNull();
   });
 
   it('is the month’s days, and none of the days around it carry a record', () => {
